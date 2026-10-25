@@ -8,6 +8,7 @@ import {
   type InvoiceUpdateGateway,
   updateInvoiceDraft,
 } from "#lib/application/update-invoice-draft";
+import { duplicateInvoiceDraft } from "#lib/application/duplicate-invoice-draft";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { DataValidationError } from "#lib/persistence/data-validation-error";
 import { invoiceSchema } from "#lib/persistence/schemas";
@@ -150,6 +151,47 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
         ].join("\n"),
       );
     });
+  invoice
+    .command("duplicate")
+    .description("請求書から新しい独立した下書きを複製します。")
+    .argument("<複製元の請求書番号>", "複製元の請求書番号")
+    .requiredOption("--payment-due-date <YYYY-MM-DD>", "新しい支払期限")
+    .option("--issue-date <YYYY-MM-DD>", "新しい発行日。省略時は実行日")
+    .option("--business-partner <取引先コード>", "複製先の取引先")
+    .action(
+      async (
+        sourceInvoiceNumber: string,
+        options: {
+          paymentDueDate: string;
+          issueDate?: string;
+          businessPartner?: string;
+        },
+      ) => {
+        const dataDirectory = resolveKeiriDataDirectory(
+          dependencies.repositoryRoot,
+          dependencies.environment,
+        );
+        const result = await duplicateInvoiceDraft(
+          dependencies.createGateway(dataDirectory),
+          {
+            sourceInvoiceNumber,
+            paymentDueDate: options.paymentDueDate,
+            issueDate: options.issueDate,
+            businessPartnerCode: options.businessPartner,
+            today: dependencies.today,
+          },
+        );
+        io.stdout.write(
+          [
+            "操作結果: 請求書の下書きを複製しました。",
+            `請求書番号: ${result.invoice.invoiceNumber}`,
+            `YAML保存先: ${result.filePath}`,
+            `リビジョン: ${result.invoice.revision}`,
+            "",
+          ].join("\n"),
+        );
+      },
+    );
 
   configureJapaneseOutput(program, io);
   return program;

@@ -70,7 +70,7 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
           revision: 1,
           rounding: { lineAmount: "floor", taxAmount: "floor" },
         },
-        invoices: [],
+        invoices: savedInvoice === undefined ? [] : [savedInvoice],
       };
     },
     async saveNewInvoice(invoice) {
@@ -354,5 +354,50 @@ describe("keiri CLI", () => {
       "broken.yaml の読み込みに失敗しました。",
     );
     expect(harness.savedInvoice()).toBeUndefined();
+  });
+
+  it("invoice duplicateで既存請求書から新しい下書きを複製する", async () => {
+    const harness = createHarness();
+    await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "create",
+        "ACME",
+        "--payment-due-date",
+        "2026-11-30",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "duplicate",
+        "ACME-202610-01",
+        "--payment-due-date",
+        "2026-12-31",
+        "--issue-date",
+        "2026-10-26",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(harness.savedInvoice()).toMatchObject({
+      invoiceNumber: "ACME-202610-02",
+      issueDate: "2026-10-26",
+      transactionDate: "2026-10-26",
+      paymentDueDate: "2026-12-31",
+      revision: 1,
+    });
+    expect(harness.stdout()).toContain(
+      "操作結果: 請求書の下書きを複製しました。",
+    );
   });
 });

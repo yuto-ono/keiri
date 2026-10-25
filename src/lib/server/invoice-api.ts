@@ -10,6 +10,7 @@ import {
   updateInvoiceDraft,
 } from "#lib/application/update-invoice-draft";
 import { DomainValidationError } from "../domain/domain-validation-error";
+import { duplicateInvoiceDraft } from "#lib/application/duplicate-invoice-draft";
 import { invoiceSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "./data-directory";
 import { KeiriDataLoadError } from "./keiri-data-loader";
@@ -20,6 +21,12 @@ const createInvoiceRequestSchema = z.strictObject({
   issueDate: z.string().min(1).optional(),
 });
 
+const duplicateInvoiceRequestSchema = z.strictObject({
+  paymentDueDate: z.string().min(1),
+  issueDate: z.string().min(1).optional(),
+  businessPartnerCode: z.string().min(1).optional(),
+});
+
 export interface CreateInvoiceApiDependencies {
   gateway: InvoiceCreationGateway;
   today: string;
@@ -27,6 +34,11 @@ export interface CreateInvoiceApiDependencies {
 
 export interface UpdateInvoiceApiDependencies {
   gateway: InvoiceUpdateGateway;
+}
+
+export interface DuplicateInvoiceApiDependencies {
+  gateway: InvoiceCreationGateway;
+  today: string;
 }
 
 export async function handleCreateInvoiceRequest(
@@ -135,6 +147,70 @@ export async function handleUpdateInvoiceRequest(
       parsed.data,
     );
     return json(result);
+  } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 422 },
+      );
+    }
+    if (error instanceof KeiriDataLoadError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 500 },
+      );
+    }
+    if (error instanceof DataDirectoryConfigurationError) {
+      return json({ message: error.message }, { status: 500 });
+    }
+    throw error;
+  }
+}
+
+export async function handleDuplicateInvoiceRequest(
+  request: Request,
+  requestUrl: URL,
+  sourceInvoiceNumber: string,
+  dependencies: DuplicateInvoiceApiDependencies,
+): Promise<Response> {
+  if (request.headers.get("origin") !== requestUrl.origin) {
+    return json(
+      { message: "同一オリジン以外からの書き込みは受け付けません。" },
+      { status: 403 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json(
+      { message: "リクエスト本文をJSONとして解析できません。" },
+      { status: 400 },
+    );
+  }
+
+  const parsed = duplicateInvoiceRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(
+      {
+        message: "請求書の複製条件が不正です。",
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path,
+          message: issue.message,
+        })),
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const result = await duplicateInvoiceDraft(dependencies.gateway, {
+      sourceInvoiceNumber,
+      ...parsed.data,
+      today: dependencies.today,
+    });
+    return json(result, { status: 201 });
   } catch (error) {
     if (error instanceof DomainValidationError) {
       return json(

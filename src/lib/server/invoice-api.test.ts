@@ -8,6 +8,7 @@ import type { InvoiceUpdateGateway } from "#lib/application/update-invoice-draft
 import type { Invoice } from "#lib/domain/model";
 import {
   handleCreateInvoiceRequest,
+  handleDuplicateInvoiceRequest,
   handleUpdateInvoiceRequest,
 } from "./invoice-api";
 
@@ -71,11 +72,11 @@ function createContext(): InvoiceCreationContext {
   };
 }
 
-function createGateway() {
+function createGateway(context = createContext()) {
   let saveCount = 0;
   const gateway: InvoiceCreationGateway = {
     async loadCreationContext() {
-      return createContext();
+      return context;
     },
     async saveNewInvoice(invoice) {
       saveCount += 1;
@@ -301,5 +302,57 @@ describe("請求書更新API", () => {
         }),
       ],
     });
+  });
+});
+
+describe("請求書複製API", () => {
+  it("複製条件から独立した下書きを作成する", async () => {
+    const source = {
+      ...createInvoice(),
+      notes: "引き継ぐ備考",
+      lineItems: [
+        {
+          name: "業務",
+          quantity: 1,
+          unit: "式",
+          unitPrice: 10_000,
+          taxCategoryId: "standard-10",
+        },
+      ],
+    };
+    const context = createContext();
+    context.invoices = [source];
+    const harness = createGateway(context);
+    const response = await handleDuplicateInvoiceRequest(
+      createRequest(JSON.stringify({ paymentDueDate: "2026-12-31" })),
+      new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01/duplicate"),
+      source.invoiceNumber,
+      { gateway: harness.gateway, today: "2026-10-26" },
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      invoice: {
+        status: "draft",
+        invoiceNumber: "ACME-202610-02",
+        issueDate: "2026-10-26",
+        paymentDueDate: "2026-12-31",
+        notes: "引き継ぐ備考",
+        lineItems: source.lineItems,
+      },
+    });
+    expect(harness.getSaveCount()).toBe(1);
+  });
+
+  it("存在しない複製元を422で拒否する", async () => {
+    const harness = createGateway();
+    const response = await handleDuplicateInvoiceRequest(
+      createRequest(JSON.stringify({ paymentDueDate: "2026-12-31" })),
+      new URL("http://127.0.0.1:5173/api/invoices/MISSING-202610-01/duplicate"),
+      "MISSING-202610-01",
+      { gateway: harness.gateway, today: "2026-10-26" },
+    );
+    expect(response.status).toBe(422);
+    expect(harness.getSaveCount()).toBe(0);
   });
 });

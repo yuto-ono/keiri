@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createInvoiceDraft } from "../application/create-invoice-draft";
+import { duplicateInvoiceDraft } from "../application/duplicate-invoice-draft";
 import { updateInvoiceDraft } from "../application/update-invoice-draft";
 import type { BusinessPartner, Issuer } from "../domain/model";
 import { invoiceSchema } from "../persistence/schemas";
@@ -130,5 +131,32 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
     expect(parseYaml(source, updated.filePath, invoiceSchema)).toEqual(
       updated.invoice,
     );
+  });
+
+  it("保存済みYAMLを複製元として新しい下書きを保存する", async () => {
+    const gateway = new FileInvoiceCreationGateway(dataRoot);
+    const source = await createInvoiceDraft(gateway, {
+      businessPartnerCode: "ACME",
+      paymentDueDate: "2026-11-30",
+      today: "2026-10-25",
+    });
+    const duplicated = await duplicateInvoiceDraft(gateway, {
+      sourceInvoiceNumber: source.invoice.invoiceNumber,
+      paymentDueDate: "2026-12-31",
+      today: "2026-10-26",
+    });
+
+    expect(duplicated.invoice.invoiceNumber).toBe("ACME-202610-02");
+    const sourceYaml = await readFile(join(dataRoot, source.filePath), "utf8");
+    const duplicatedYaml = await readFile(
+      join(dataRoot, duplicated.filePath),
+      "utf8",
+    );
+    expect(parseYaml(sourceYaml, source.filePath, invoiceSchema)).toEqual(
+      source.invoice,
+    );
+    expect(
+      parseYaml(duplicatedYaml, duplicated.filePath, invoiceSchema),
+    ).toEqual(duplicated.invoice);
   });
 });

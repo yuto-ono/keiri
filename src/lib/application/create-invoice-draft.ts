@@ -37,10 +37,26 @@ export interface CreateInvoiceDraftResult {
   filePath: string;
 }
 
+export interface InvoiceDraftInitialContent {
+  lineItems: Invoice["lineItems"];
+  notes: string | null;
+}
+
 export async function createInvoiceDraft(
   gateway: InvoiceCreationGateway,
   input: CreateInvoiceDraftInput,
 ): Promise<CreateInvoiceDraftResult> {
+  const context = await gateway.loadCreationContext();
+  const invoice = buildInvoiceDraft(context, input);
+  const saved = await gateway.saveNewInvoice(invoice);
+  return { invoice, filePath: saved.filePath };
+}
+
+export function buildInvoiceDraft(
+  context: InvoiceCreationContext,
+  input: CreateInvoiceDraftInput,
+  initialContent: InvoiceDraftInitialContent = { lineItems: [], notes: null },
+): Invoice {
   const issueDate = input.issueDate ?? input.today;
   const dateIssues = validateInputDates(
     input.today,
@@ -51,7 +67,6 @@ export async function createInvoiceDraft(
     throw new DomainValidationError("請求書の作成条件が不正です。", dateIssues);
   }
 
-  const context = await gateway.loadCreationContext();
   const businessPartner = context.businessPartners.find(
     (candidate) => candidate.code === input.businessPartnerCode,
   );
@@ -89,7 +104,7 @@ export async function createInvoiceDraft(
     issueDate,
     context.invoices,
   );
-  const invoice: Invoice = {
+  return {
     revision: 1,
     status: "draft",
     invoiceNumber,
@@ -112,10 +127,11 @@ export async function createInvoiceDraft(
           ? { visible: true, value: issuer.email as string }
           : { visible: false },
         bankAccounts: businessPartner.issuerDisplay.bankAccountIds.map(
-          (bankAccountId) =>
-            issuer.bankAccounts.find(
+          (bankAccountId) => ({
+            ...(issuer.bankAccounts.find(
               (bankAccount) => bankAccount.id === bankAccountId,
-            ) as Issuer["bankAccounts"][number],
+            ) as Issuer["bankAccounts"][number]),
+          }),
         ),
       },
     },
@@ -124,14 +140,11 @@ export async function createInvoiceDraft(
     paymentDueDate: input.paymentDueDate,
     paymentCompletedDate: null,
     unitPricesIncludeTax: businessPartner.unitPricesIncludeTax,
-    lineItems: [],
-    notes: null,
+    lineItems: initialContent.lineItems.map((lineItem) => ({ ...lineItem })),
+    notes: initialContent.notes,
     rounding: { ...context.settings.rounding },
     pdf: { fileNameOverride: null, issuedFileName: null },
   };
-
-  const saved = await gateway.saveNewInvoice(invoice);
-  return { invoice, filePath: saved.filePath };
 }
 
 function validateInputDates(
