@@ -48,28 +48,26 @@ export const bankAccountSchema: z.ZodType<BankAccount> = z.strictObject({
   accountHolderName: nonEmptyString,
 });
 
-export const businessPartnerSchema: z.ZodType<BusinessPartner> = z.strictObject(
-  {
-    revision,
-    code: businessPartnerCode,
-    addressee: nonEmptyString,
-    honorific,
-    requiresMonthlyInvoice: z.boolean(),
-    billingInstructions: nonEmptyString.nullable(),
-    unitPricesIncludeTax: z.boolean(),
-    issuerDisplay: z.strictObject({
-      phone: z.boolean(),
-      email: z.boolean(),
-      bankAccountIds: z
-        .array(identifier)
-        .min(1, "振込先IDを1件以上指定してください。"),
-    }),
-    pdfFileNamePattern: nonEmptyString.refine(
-      (value) => validatePdfFileNamePattern(value).length === 0,
-      "PDFファイル名の命名規則が不正です。",
-    ),
-  },
-);
+export const businessPartnerSchema = z.strictObject({
+  revision,
+  code: businessPartnerCode,
+  addressee: nonEmptyString,
+  honorific,
+  requiresMonthlyInvoice: z.boolean(),
+  billingInstructions: nonEmptyString.nullable(),
+  unitPricesIncludeTax: z.boolean(),
+  issuerDisplay: z.strictObject({
+    phone: z.boolean(),
+    email: z.boolean(),
+    bankAccountIds: z
+      .array(identifier)
+      .min(1, "振込先IDを1件以上指定してください。"),
+  }),
+  pdfFileNamePattern: nonEmptyString.refine(
+    (value) => validatePdfFileNamePattern(value).length === 0,
+    "PDFファイル名の命名規則が不正です。",
+  ),
+}) satisfies z.ZodType<BusinessPartner>;
 
 export const issuerSchema: z.ZodType<Issuer> = z.strictObject({
   revision,

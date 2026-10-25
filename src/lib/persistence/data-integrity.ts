@@ -1,4 +1,5 @@
 import { isBusinessDateAfter } from "#lib/domain/business-date";
+import { validateBusinessPartnerIssuerDisplay } from "#lib/domain/business-partner";
 import type {
   BusinessPartner,
   Invoice,
@@ -145,41 +146,12 @@ function validateBusinessPartner(
   }
 
   const issuer = issuerRecords[0].data;
-  if (partner.issuerDisplay.phone && issuer.phone === null) {
-    issues.push({
+  issues.push(
+    ...validateBusinessPartnerIssuerDisplay(partner, issuer).map((issue) => ({
+      ...issue,
       filePath,
-      path: ["issuerDisplay", "phone"],
-      message: "発行者に電話番号がないため表示できません。",
-    });
-  }
-  if (partner.issuerDisplay.email && issuer.email === null) {
-    issues.push({
-      filePath,
-      path: ["issuerDisplay", "email"],
-      message: "発行者にメールアドレスがないため表示できません。",
-    });
-  }
-
-  const bankAccountIds = new Set<string>();
-  partner.issuerDisplay.bankAccountIds.forEach((bankAccountId, index) => {
-    if (bankAccountIds.has(bankAccountId)) {
-      issues.push({
-        filePath,
-        path: ["issuerDisplay", "bankAccountIds", index],
-        message: `振込先ID ${bankAccountId} が重複しています。`,
-      });
-    } else {
-      bankAccountIds.add(bankAccountId);
-    }
-
-    if (!issuer.bankAccounts.some((account) => account.id === bankAccountId)) {
-      issues.push({
-        filePath,
-        path: ["issuerDisplay", "bankAccountIds", index],
-        message: `発行者に振込先 ${bankAccountId} が存在しません。`,
-      });
-    }
-  });
+    })),
+  );
 }
 
 function validateInvoice(

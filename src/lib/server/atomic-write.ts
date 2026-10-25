@@ -93,6 +93,32 @@ export async function moveTextFileAtomically(
     return;
   }
 
+  if (await isCaseOnlyRenameOfSameFile(sourcePath, targetPath)) {
+    validate(contents);
+    const temporaryPath = await stageFile(
+      targetPath,
+      Buffer.from(contents, "utf8"),
+    );
+    let nameChanged = false;
+    try {
+      validate(await readFile(temporaryPath, "utf8"));
+      // 同じファイルを指す大小文字違いの名前は、内容を反映する前に正式な表記へ変更する。
+      await rename(sourcePath, targetPath);
+      nameChanged = true;
+      await rename(temporaryPath, targetPath);
+    } catch (error) {
+      try {
+        if (nameChanged) {
+          await rename(targetPath, sourcePath);
+        }
+      } finally {
+        await removeTemporaryFile(temporaryPath);
+      }
+      throw error;
+    }
+    return;
+  }
+
   await writeTextFileAtomically(targetPath, contents, {
     overwrite: false,
     validate,
@@ -101,6 +127,27 @@ export async function moveTextFileAtomically(
     await unlink(sourcePath);
   } catch (error) {
     await removeTemporaryFile(targetPath);
+    throw error;
+  }
+}
+
+async function isCaseOnlyRenameOfSameFile(
+  sourcePath: string,
+  targetPath: string,
+): Promise<boolean> {
+  if (sourcePath.toLowerCase() !== targetPath.toLowerCase()) {
+    return false;
+  }
+  try {
+    const [source, target] = await Promise.all([
+      stat(sourcePath),
+      stat(targetPath),
+    ]);
+    return source.dev === target.dev && source.ino === target.ino;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return false;
+    }
     throw error;
   }
 }
