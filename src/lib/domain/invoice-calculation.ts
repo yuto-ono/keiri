@@ -77,7 +77,6 @@ function validateCalculationInput(
   const issues: { path: (string | number)[]; message: string }[] = [];
 
   if (
-    input.taxCategory.deprecated ||
     !input.taxCategory.isStandardRate ||
     !Number.isSafeInteger(input.taxCategory.ratePercent) ||
     input.taxCategory.ratePercent < 1 ||
@@ -85,7 +84,7 @@ function validateCalculationInput(
   ) {
     issues.push({
       path: ["taxCategory"],
-      message: "未廃止で1〜100%の標準税率に該当する課税区分が必要です。",
+      message: "1〜100%の標準税率に該当する課税区分が必要です。",
     });
   }
 

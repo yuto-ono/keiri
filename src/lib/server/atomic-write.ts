@@ -54,6 +54,32 @@ export async function writeTextFileAtomically(
   }
 }
 
+export async function moveTextFileAtomically(
+  sourcePath: string,
+  targetPath: string,
+  contents: string,
+  validate: (contents: string) => void,
+): Promise<void> {
+  if (sourcePath === targetPath) {
+    await writeTextFileAtomically(targetPath, contents, {
+      overwrite: true,
+      validate,
+    });
+    return;
+  }
+
+  await writeTextFileAtomically(targetPath, contents, {
+    overwrite: false,
+    validate,
+  });
+  try {
+    await unlink(sourcePath);
+  } catch (error) {
+    await removeTemporaryFile(targetPath);
+    throw error;
+  }
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path);

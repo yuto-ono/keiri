@@ -1,10 +1,20 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { writeTextFileAtomically } from "./atomic-write";
+import {
+  moveTextFileAtomically,
+  writeTextFileAtomically,
+} from "./atomic-write";
 
 let temporaryDirectory: string;
 
@@ -68,5 +78,39 @@ describe("atomicなテキストファイル保存", () => {
       }),
     ).rejects.toThrow("既に存在します");
     expect(await readFile(targetPath, "utf8")).toBe("original\n");
+  });
+
+  it("検証済みの内容を別のパスへ移し、元のファイルを除去する", async () => {
+    const sourcePath = join(temporaryDirectory, "2026/data.yaml");
+    const targetPath = join(temporaryDirectory, "2025/data.yaml");
+    await mkdir(join(temporaryDirectory, "2026"));
+    await writeFile(sourcePath, "revision: 1\n", { flush: true });
+
+    await moveTextFileAtomically(
+      sourcePath,
+      targetPath,
+      "revision: 2\n",
+      () => {},
+    );
+
+    await expect(readFile(sourcePath, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(readFile(targetPath, "utf8")).resolves.toBe("revision: 2\n");
+  });
+
+  it("移動先が存在する場合は元と移動先を変更しない", async () => {
+    const sourcePath = join(temporaryDirectory, "source.yaml");
+    const targetPath = join(temporaryDirectory, "target.yaml");
+    await Promise.all([
+      writeFile(sourcePath, "source\n"),
+      writeFile(targetPath, "target\n"),
+    ]);
+
+    await expect(
+      moveTextFileAtomically(sourcePath, targetPath, "updated\n", () => {}),
+    ).rejects.toThrow("既に存在します");
+    await expect(readFile(sourcePath, "utf8")).resolves.toBe("source\n");
+    await expect(readFile(targetPath, "utf8")).resolves.toBe("target\n");
   });
 });
