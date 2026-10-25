@@ -2,6 +2,11 @@ import BigNumber from "bignumber.js";
 import { z } from "zod";
 
 import { isBusinessDate } from "../domain/business-date";
+import {
+  isValidIssuedPdfFileName,
+  validatePdfBaseName,
+  validatePdfFileNamePattern,
+} from "../domain/pdf-file-name";
 import type {
   BankAccount,
   BusinessPartner,
@@ -59,7 +64,10 @@ export const businessPartnerSchema: z.ZodType<BusinessPartner> = z.strictObject(
         .array(identifier)
         .min(1, "振込先IDを1件以上指定してください。"),
     }),
-    pdfFileNamePattern: nonEmptyString,
+    pdfFileNamePattern: nonEmptyString.refine(
+      (value) => validatePdfFileNamePattern(value).length === 0,
+      "PDFファイル名の命名規則が不正です。",
+    ),
   },
 );
 
@@ -168,7 +176,13 @@ export const invoiceSchema: z.ZodType<Invoice> = z
       taxAmount: roundingMethod,
     }),
     pdf: z.strictObject({
-      fileNameOverride: z.string().nullable(),
+      fileNameOverride: z
+        .string()
+        .refine(
+          (value) => validatePdfBaseName(value).length === 0,
+          "PDFの個別ファイル名が不正です。",
+        )
+        .nullable(),
       issuedFileName: z.string().nullable(),
     }),
   })
@@ -190,7 +204,7 @@ export const invoiceSchema: z.ZodType<Invoice> = z
       }
     } else if (
       invoice.pdf.issuedFileName === null ||
-      !invoice.pdf.issuedFileName.endsWith(".pdf")
+      !isValidIssuedPdfFileName(invoice.pdf.issuedFileName)
     ) {
       context.addIssue({
         code: "custom",

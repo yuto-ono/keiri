@@ -1,0 +1,8 @@
+revision: 1
+taxCategories:
+  - id: standard-10
+    name: 標準10%
+    treatment: taxable
+    deprecated: false
+    isStandardRate: true
+    ratePercent: 10

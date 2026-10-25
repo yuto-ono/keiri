@@ -1,0 +1,15 @@
+revision: 1
+id: your-issuer-id
+name: ここに発行者の氏名または名称を入力
+registrationNumber: ここに登録番号を入力
+phone: null
+email: null
+bankAccounts:
+  - id: primary
+    bankName: ここに銀行名を入力
+    branchName: ここに支店名を入力
+    branchCode: ここに3桁の支店番号を入力
+    accountType: ordinary
+    accountNumber: ここに7桁の口座番号を入力
+    accountHolderName: ここに口座名義を入力
+defaultBankAccountId: primary

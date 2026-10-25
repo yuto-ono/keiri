@@ -18,6 +18,8 @@ pnpm dev
 
 `.env` の `KEIRI_DATA_DIR` には、`keiri-data` のパスを指定する。相対パスはkeiriリポジトリルートを基準に解決する。
 
+利用者データの初期作成は、[keiri-data雛形](templates/keiri-data/README.md) の手順に従う。
+
 コードの検証には次のコマンドを使用する。
 
 ```sh
