@@ -3,8 +3,10 @@ import BigNumber from "bignumber.js";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import type {
   InvoiceLineItem,
+  Invoice,
   InvoiceRounding,
   RoundingMethod,
+  TaxCategory,
   TaxableTaxCategory,
 } from "#lib/domain/model";
 
@@ -23,6 +25,46 @@ export interface InvoiceCalculation {
   taxableAmount: string;
   taxAmount: string;
   totalAmount: string;
+}
+
+export function resolveInvoiceAmounts(
+  invoice: Invoice,
+  taxCategories: readonly TaxCategory[],
+): { calculation: InvoiceCalculation; taxCategory: TaxableTaxCategory | null } {
+  if (invoice.lineItems.length === 0) {
+    return {
+      calculation: {
+        lineAmounts: [],
+        taxableAmount: "0",
+        taxAmount: "0",
+        totalAmount: "0",
+      },
+      taxCategory: null,
+    };
+  }
+  const id = invoice.lineItems[0].taxCategoryId;
+  const taxCategory = taxCategories.find((category) => category.id === id);
+  if (
+    taxCategory === undefined ||
+    taxCategory.treatment !== "taxable" ||
+    !taxCategory.isStandardRate
+  ) {
+    throw new DomainValidationError("請求金額を計算できません。", [
+      {
+        path: ["lineItems", 0, "taxCategoryId"],
+        message: `税区分 ${id} は標準税率の課税区分ではありません。`,
+      },
+    ]);
+  }
+  return {
+    taxCategory,
+    calculation: calculateInvoiceAmounts({
+      lineItems: invoice.lineItems,
+      unitPricesIncludeTax: invoice.unitPricesIncludeTax,
+      rounding: invoice.rounding,
+      taxCategory,
+    }),
+  };
 }
 
 export function calculateInvoiceAmounts(

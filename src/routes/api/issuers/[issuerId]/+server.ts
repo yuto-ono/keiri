@@ -7,6 +7,10 @@ import {
 } from "#lib/server/data-directory";
 import { FileIssuerUpdateGateway } from "#lib/server/file-issuer-update-gateway";
 import { handleUpdateIssuerRequest } from "#lib/server/issuer-api";
+import { handleGetIssuerRequest } from "#lib/server/read-api";
+
+export const GET: RequestHandler = ({ params }) =>
+  handleGetIssuerRequest(params.issuerId);
 
 export const PUT: RequestHandler = async ({ request, url, params }) => {
   try {

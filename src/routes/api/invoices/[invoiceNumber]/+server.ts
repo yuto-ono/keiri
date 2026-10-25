@@ -11,6 +11,10 @@ import {
   handleDeleteInvoiceRequest,
   handleUpdateInvoiceRequest,
 } from "#lib/server/invoice-api";
+import { handleGetInvoiceRequest } from "#lib/server/read-api";
+
+export const GET: RequestHandler = ({ params }) =>
+  handleGetInvoiceRequest(params.invoiceNumber);
 
 export const PUT: RequestHandler = async ({ request, url, params }) => {
   try {

@@ -7,6 +7,9 @@ import {
 } from "#lib/server/data-directory";
 import { FileSettingsUpdateGateway } from "#lib/server/file-settings-update-gateway";
 import { handleUpdateSettingsRequest } from "#lib/server/settings-api";
+import { handleGetSettingsRequest } from "#lib/server/read-api";
+
+export const GET: RequestHandler = () => handleGetSettingsRequest();
 
 export const PUT: RequestHandler = async ({ request, url }) => {
   try {

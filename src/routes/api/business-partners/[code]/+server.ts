@@ -10,6 +10,10 @@ import {
   resolveKeiriDataDirectory,
 } from "#lib/server/data-directory";
 import { FileBusinessPartnerGateway } from "#lib/server/file-business-partner-gateway";
+import { handleGetBusinessPartnerRequest } from "#lib/server/read-api";
+
+export const GET: RequestHandler = ({ params }) =>
+  handleGetBusinessPartnerRequest(params.code);
 
 export const PUT: RequestHandler = async ({ request, url, params }) => {
   try {
