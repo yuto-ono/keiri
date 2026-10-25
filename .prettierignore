@@ -1,0 +1,8 @@
+.svelte-kit/
+build/
+coverage/
+node_modules/
+templates/
+*.md
+*.yaml
+*.yml

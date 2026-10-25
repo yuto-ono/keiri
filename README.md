@@ -4,6 +4,30 @@
 
 確定した仕様は [SPEC.md](SPEC.md) に記録します。
 
+## 開発環境
+
+Node.jsとpnpmのバージョンは `mise.toml` で固定している。
+
+```sh
+mise install
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+cp .env.example .env
+pnpm dev
+```
+
+`.env` の `KEIRI_DATA_DIR` には、`keiri-data` のパスを指定する。相対パスはkeiriリポジトリルートを基準に解決する。
+
+コードの検証には次のコマンドを使用する。
+
+```sh
+pnpm format:check
+pnpm lint
+pnpm check
+pnpm test
+pnpm build
+```
+
 ## ドキュメント
 
 - [SPEC.md](SPEC.md): 確定した要件の唯一の正
