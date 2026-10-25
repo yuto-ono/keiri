@@ -9,7 +9,7 @@ import type {
   Settings,
   TaxCategories,
   TaxCategory,
-} from "../domain/model";
+} from "#lib/domain/model";
 
 export function serializeBusinessPartner(value: BusinessPartner): string {
   return stringifyYaml({

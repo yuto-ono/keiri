@@ -1,5 +1,5 @@
-import { DomainValidationError } from "./domain-validation-error";
-import type { TaxableTaxCategory, TaxCategory } from "./model";
+import { DomainValidationError } from "#lib/domain/domain-validation-error";
+import type { TaxableTaxCategory, TaxCategory } from "#lib/domain/model";
 
 export function selectCurrentStandardTaxCategory(
   taxCategories: readonly TaxCategory[],

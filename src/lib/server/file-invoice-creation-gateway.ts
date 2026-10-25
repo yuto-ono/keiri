@@ -3,13 +3,13 @@ import { resolve } from "node:path";
 import type {
   InvoiceCreationContext,
   InvoiceCreationGateway,
-} from "../application/create-invoice-draft";
-import type { Invoice } from "../domain/model";
-import { invoiceSchema } from "../persistence/schemas";
-import { parseYaml } from "../persistence/yaml-parser";
-import { serializeInvoice } from "../persistence/yaml-serializer";
-import { writeTextFileAtomically } from "./atomic-write";
-import { loadKeiriData } from "./keiri-data-loader";
+} from "#lib/application/create-invoice-draft";
+import type { Invoice } from "#lib/domain/model";
+import { invoiceSchema } from "#lib/persistence/schemas";
+import { parseYaml } from "#lib/persistence/yaml-parser";
+import { serializeInvoice } from "#lib/persistence/yaml-serializer";
+import { writeTextFileAtomically } from "#lib/server/atomic-write";
+import { loadKeiriData } from "#lib/server/keiri-data-loader";
 
 export class FileInvoiceCreationGateway implements InvoiceCreationGateway {
   readonly #rootDirectory: string;

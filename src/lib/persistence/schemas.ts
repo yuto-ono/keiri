@@ -1,12 +1,12 @@
 import BigNumber from "bignumber.js";
 import { z } from "zod";
 
-import { isBusinessDate } from "../domain/business-date";
+import { isBusinessDate } from "#lib/domain/business-date";
 import {
   isValidIssuedPdfFileName,
   validatePdfBaseName,
   validatePdfFileNamePattern,
-} from "../domain/pdf-file-name";
+} from "#lib/domain/pdf-file-name";
 import type {
   BankAccount,
   BusinessPartner,
@@ -15,7 +15,7 @@ import type {
   Settings,
   TaxCategories,
   TaxCategory,
-} from "../domain/model";
+} from "#lib/domain/model";
 
 const nonEmptyString = z.string().min(1, "空でない文字列が必要です。");
 const revision = z.int("正の整数が必要です。").positive("正の整数が必要です。");

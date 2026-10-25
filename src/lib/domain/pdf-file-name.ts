@@ -1,7 +1,7 @@
 import {
   DomainValidationError,
   type DomainValidationIssue,
-} from "./domain-validation-error";
+} from "#lib/domain/domain-validation-error";
 
 const PLACEHOLDER = /\{([^{}]+)\}/g;
 

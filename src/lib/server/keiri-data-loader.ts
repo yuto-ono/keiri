@@ -1,22 +1,22 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import type { Settings } from "../domain/model";
+import type { Settings } from "#lib/domain/model";
 import {
   type DataFile,
   type DataIntegrityIssue,
   type KeiriDataSet,
   validateDataIntegrity,
-} from "../persistence/data-integrity";
-import { DataValidationError } from "../persistence/data-validation-error";
+} from "#lib/persistence/data-integrity";
+import { DataValidationError } from "#lib/persistence/data-validation-error";
 import {
   businessPartnerSchema,
   invoiceSchema,
   issuerSchema,
   settingsSchema,
   taxCategoriesSchema,
-} from "../persistence/schemas";
-import { parseYaml } from "../persistence/yaml-parser";
+} from "#lib/persistence/schemas";
+import { parseYaml } from "#lib/persistence/yaml-parser";
 
 export interface LoadedKeiriData extends KeiriDataSet {
   rootDirectory: string;

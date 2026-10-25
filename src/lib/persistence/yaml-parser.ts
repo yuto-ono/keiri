@@ -5,7 +5,7 @@ import type { z } from "zod";
 import {
   DataValidationError,
   type DataValidationIssue,
-} from "./data-validation-error";
+} from "#lib/persistence/data-validation-error";
 
 export function parseYaml<T>(
   source: string,

@@ -1,16 +1,16 @@
-import { isBusinessDate } from "../domain/business-date";
+import { isBusinessDate } from "#lib/domain/business-date";
 import {
   DomainValidationError,
   type DomainValidationIssue,
-} from "../domain/domain-validation-error";
+} from "#lib/domain/domain-validation-error";
 import type {
   BusinessPartner,
   Invoice,
   Issuer,
   Settings,
   TaxCategory,
-} from "../domain/model";
-import { selectCurrentStandardTaxCategory } from "../domain/tax-category";
+} from "#lib/domain/model";
+import { selectCurrentStandardTaxCategory } from "#lib/domain/tax-category";
 
 export interface InvoiceCreationContext {
   businessPartners: readonly BusinessPartner[];

@@ -1,11 +1,11 @@
-import { isBusinessDateAfter } from "../domain/business-date";
+import { isBusinessDateAfter } from "#lib/domain/business-date";
 import type {
   BusinessPartner,
   Invoice,
   Issuer,
   TaxCategories,
   TaxCategory,
-} from "../domain/model";
+} from "#lib/domain/model";
 
 export interface DataFile<T> {
   filePath: string;

@@ -9,11 +9,12 @@
     "pnpm": "12.15.0"
   },
   "imports": {
-    "#lib": "./src/lib",
-    "#lib/*": "./src/lib/*"
+    "#lib/styles/*": "./src/lib/styles/*",
+    "#lib/*": "./src/lib/*.ts"
   },
   "scripts": {
     "dev": "node --env-file=.env node_modules/vite/bin/vite.js dev",
+    "keiri": "node --env-file=.env src/cli.ts",
     "build": "vite build",
     "start": "HOST=127.0.0.1 node --env-file=.env build",
     "prepare": "svelte-kit sync",
