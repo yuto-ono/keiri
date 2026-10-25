@@ -4,7 +4,14 @@ import {
   createInvoiceDraft,
   type InvoiceCreationGateway,
 } from "#lib/application/create-invoice-draft";
+import {
+  type InvoiceUpdateGateway,
+  updateInvoiceDraft,
+} from "#lib/application/update-invoice-draft";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
+import { DataValidationError } from "#lib/persistence/data-validation-error";
+import { invoiceSchema } from "#lib/persistence/schemas";
+import { parseYaml } from "#lib/persistence/yaml-parser";
 import {
   DataDirectoryConfigurationError,
   resolveKeiriDataDirectory,
@@ -20,6 +27,8 @@ export interface CliDependencies {
   environment: Readonly<Record<string, string | undefined>>;
   today: string;
   createGateway(dataDirectory: string): InvoiceCreationGateway;
+  createUpdateGateway(dataDirectory: string): InvoiceUpdateGateway;
+  readInput(path: string): Promise<string>;
 }
 
 export interface CliIo {
@@ -55,11 +64,18 @@ export async function runCli(
       writeValidationError(io.stderr, error.message, error.issues);
       return 1;
     }
+    if (error instanceof DataValidationError) {
+      writeValidationError(io.stderr, error.message, error.issues);
+      return 1;
+    }
     if (error instanceof DataDirectoryConfigurationError) {
       io.stderr.write(`${error.message}\n`);
       return 1;
     }
-    throw error;
+    io.stderr.write(
+      `処理に失敗しました。\n- 全体: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return 1;
   }
 }
 
@@ -106,6 +122,34 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
         );
       },
     );
+  invoice
+    .command("update")
+    .description("保存済みの請求書下書きを更新します。")
+    .argument("<請求書番号>", "更新する請求書番号")
+    .requiredOption("--input <ファイルパス|->", "完全な請求書YAMLの入力元")
+    .action(async (invoiceNumber: string, options: { input: string }) => {
+      const source = await dependencies.readInput(options.input);
+      const inputName = options.input === "-" ? "標準入力" : options.input;
+      const proposedInvoice = parseYaml(source, inputName, invoiceSchema);
+      const dataDirectory = resolveKeiriDataDirectory(
+        dependencies.repositoryRoot,
+        dependencies.environment,
+      );
+      const result = await updateInvoiceDraft(
+        dependencies.createUpdateGateway(dataDirectory),
+        invoiceNumber,
+        proposedInvoice,
+      );
+      io.stdout.write(
+        [
+          "操作結果: 請求書の下書きを更新しました。",
+          `請求書番号: ${result.invoice.invoiceNumber}`,
+          `YAML保存先: ${result.filePath}`,
+          `リビジョン: ${result.invoice.revision}`,
+          "",
+        ].join("\n"),
+      );
+    });
 
   configureJapaneseOutput(program, io);
   return program;

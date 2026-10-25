@@ -4,7 +4,12 @@ import type {
   InvoiceCreationContext,
   InvoiceCreationGateway,
 } from "../application/create-invoice-draft";
-import { handleCreateInvoiceRequest } from "./invoice-api";
+import type { InvoiceUpdateGateway } from "#lib/application/update-invoice-draft";
+import type { Invoice } from "#lib/domain/model";
+import {
+  handleCreateInvoiceRequest,
+  handleUpdateInvoiceRequest,
+} from "./invoice-api";
 
 function createContext(): InvoiceCreationContext {
   return {
@@ -170,5 +175,131 @@ describe("請求書作成API", () => {
       ],
     });
     expect(getSaveCount()).toBe(0);
+  });
+});
+
+function createInvoice(): Invoice {
+  const context = createContext();
+  const issuer = context.issuers[0];
+  return {
+    revision: 1,
+    status: "draft",
+    invoiceNumber: "ACME-202610-01",
+    businessPartner: {
+      code: "ACME",
+      snapshot: { addressee: "株式会社サンプル", honorific: "御中" },
+    },
+    issuer: {
+      id: issuer.id,
+      snapshot: {
+        name: issuer.name,
+        registrationNumber: issuer.registrationNumber,
+        phone: { visible: false },
+        email: { visible: false },
+        bankAccounts: issuer.bankAccounts,
+      },
+    },
+    issueDate: "2026-10-25",
+    transactionDate: "2026-10-25",
+    paymentDueDate: "2026-11-30",
+    paymentCompletedDate: null,
+    unitPricesIncludeTax: false,
+    lineItems: [],
+    notes: null,
+    rounding: { lineAmount: "floor", taxAmount: "floor" },
+    pdf: { fileNameOverride: null, issuedFileName: null },
+  };
+}
+
+function createUpdateGateway(current = createInvoice()) {
+  let savedInvoice: Invoice | undefined;
+  const context = createContext();
+  const gateway: InvoiceUpdateGateway = {
+    async loadUpdateContext() {
+      return {
+        invoice: current,
+        issuer: context.issuers[0],
+        taxCategories: context.taxCategories,
+      };
+    },
+    async saveUpdatedInvoice(_current, updated) {
+      savedInvoice = updated;
+      return {
+        filePath: `sales/invoices/2026/${updated.invoiceNumber}.yaml`,
+      };
+    },
+  };
+  return { gateway, savedInvoice: () => savedInvoice };
+}
+
+function createUpdateRequest(body: unknown, origin = "http://127.0.0.1:5173") {
+  return new Request("http://127.0.0.1:5173/api/invoices/ACME-202610-01", {
+    method: "PUT",
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("請求書更新API", () => {
+  it("同一オリジンの完全な請求書から下書きを更新する", async () => {
+    const current = createInvoice();
+    const proposed = { ...current, notes: "更新後" };
+    const harness = createUpdateGateway(current);
+    const response = await handleUpdateInvoiceRequest(
+      createUpdateRequest(proposed),
+      new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01"),
+      current.invoiceNumber,
+      { gateway: harness.gateway },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      invoice: { revision: 2, notes: "更新後" },
+      filePath: "sales/invoices/2026/ACME-202610-01.yaml",
+    });
+    expect(harness.savedInvoice()?.revision).toBe(2);
+  });
+
+  it("外部オリジンを更新前に拒否する", async () => {
+    const harness = createUpdateGateway();
+    const response = await handleUpdateInvoiceRequest(
+      createUpdateRequest(createInvoice(), "https://example.com"),
+      new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01"),
+      "ACME-202610-01",
+      { gateway: harness.gateway },
+    );
+    expect(response.status).toBe(403);
+    expect(harness.savedInvoice()).toBeUndefined();
+  });
+
+  it("構造が不完全な入力を400で拒否する", async () => {
+    const harness = createUpdateGateway();
+    const response = await handleUpdateInvoiceRequest(
+      createUpdateRequest({ revision: 1 }),
+      new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01"),
+      "ACME-202610-01",
+      { gateway: harness.gateway },
+    );
+    expect(response.status).toBe(400);
+    expect(harness.savedInvoice()).toBeUndefined();
+  });
+
+  it("URLと入力内の請求書番号不一致を422で拒否する", async () => {
+    const harness = createUpdateGateway();
+    const response = await handleUpdateInvoiceRequest(
+      createUpdateRequest(createInvoice()),
+      new URL("http://127.0.0.1:5173/api/invoices/OTHER-202610-01"),
+      "OTHER-202610-01",
+      { gateway: harness.gateway },
+    );
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: [
+        expect.objectContaining({
+          path: ["invoiceNumber"],
+          message: expect.stringContaining("一致しません"),
+        }),
+      ],
+    });
   });
 });

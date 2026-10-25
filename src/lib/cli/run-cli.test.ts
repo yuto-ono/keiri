@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { InvoiceCreationGateway } from "../application/create-invoice-draft";
 import type { Invoice } from "../domain/model";
+import { serializeInvoice } from "../persistence/yaml-serializer";
 import { runCli, type CliDependencies, type CliIo } from "./run-cli";
 
 function createHarness(overrides: Partial<CliDependencies> = {}) {
@@ -9,6 +10,9 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
   let stderr = "";
   let savedInvoice: Invoice | undefined;
   let gatewayDataDirectory: string | undefined;
+  let updateGatewayDataDirectory: string | undefined;
+  let lastReadInputPath: string | undefined;
+  const inputSources = new Map<string, string>();
   const gateway: InvoiceCreationGateway = {
     async loadCreationContext() {
       return {
@@ -84,6 +88,33 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
       gatewayDataDirectory = dataDirectory;
       return gateway;
     },
+    createUpdateGateway(dataDirectory) {
+      updateGatewayDataDirectory = dataDirectory;
+      return {
+        async loadUpdateContext() {
+          const context = await gateway.loadCreationContext();
+          return {
+            invoice: savedInvoice,
+            issuer: context.issuers[0],
+            taxCategories: context.taxCategories,
+          };
+        },
+        async saveUpdatedInvoice(_current, updated) {
+          savedInvoice = updated;
+          return {
+            filePath: `sales/invoices/${updated.transactionDate.slice(0, 4)}/${updated.invoiceNumber}.yaml`,
+          };
+        },
+      };
+    },
+    async readInput(path) {
+      lastReadInputPath = path;
+      const source = inputSources.get(path);
+      if (source === undefined) {
+        throw new Error(`入力 ${path} がありません。`);
+      }
+      return source;
+    },
     ...overrides,
   };
   const io: CliIo = {
@@ -97,6 +128,9 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
     stderr: () => stderr,
     savedInvoice: () => savedInvoice,
     gatewayDataDirectory: () => gatewayDataDirectory,
+    updateGatewayDataDirectory: () => updateGatewayDataDirectory,
+    lastReadInputPath: () => lastReadInputPath,
+    setInput: (path: string, source: string) => inputSources.set(path, source),
   };
 }
 
@@ -222,5 +256,103 @@ describe("keiri CLI", () => {
     );
     expect(exitCode).toBe(1);
     expect(harness.stderr()).toContain("KEIRI_DATA_DIR");
+  });
+
+  it("invoice updateでファイルの完全なYAMLから下書きを更新する", async () => {
+    const harness = createHarness();
+    await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "create",
+        "ACME",
+        "--payment-due-date",
+        "2026-11-30",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    const current = harness.savedInvoice();
+    expect(current).toBeDefined();
+    harness.setInput(
+      "updated.yaml",
+      serializeInvoice({ ...current!, notes: "更新後" }),
+    );
+
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "update",
+        "ACME-202610-01",
+        "--input",
+        "updated.yaml",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(harness.updateGatewayDataDirectory()).toBe("/work/keiri-data");
+    expect(harness.lastReadInputPath()).toBe("updated.yaml");
+    expect(harness.savedInvoice()).toMatchObject({
+      revision: 2,
+      notes: "更新後",
+    });
+    expect(harness.stdout()).toContain(
+      "操作結果: 請求書の下書きを更新しました。",
+    );
+    expect(harness.stdout()).toContain("リビジョン: 2");
+  });
+
+  it("--input -を標準入力として同じYAML解析へ渡す", async () => {
+    const harness = createHarness();
+    await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "create",
+        "ACME",
+        "--payment-due-date",
+        "2026-11-30",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    harness.setInput("-", serializeInvoice(harness.savedInvoice()!));
+
+    const exitCode = await runCli(
+      ["node", "keiri", "invoice", "update", "ACME-202610-01", "--input", "-"],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(0);
+    expect(harness.lastReadInputPath()).toBe("-");
+  });
+
+  it("更新入力のYAML構文エラーを対象名付きで標準エラーへ出力する", async () => {
+    const harness = createHarness();
+    harness.setInput("broken.yaml", "revision: [\n");
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "update",
+        "ACME-202610-01",
+        "--input",
+        "broken.yaml",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain(
+      "broken.yaml の読み込みに失敗しました。",
+    );
+    expect(harness.savedInvoice()).toBeUndefined();
   });
 });

@@ -1,12 +1,12 @@
 import BigNumber from "bignumber.js";
 
-import { DomainValidationError } from "./domain-validation-error";
+import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import type {
   InvoiceLineItem,
   InvoiceRounding,
   RoundingMethod,
   TaxableTaxCategory,
-} from "./model";
+} from "#lib/domain/model";
 
 const MAX_QUANTITY = new BigNumber("999999999999.99");
 const MAX_UNIT_PRICE = 999_999_999_999;
