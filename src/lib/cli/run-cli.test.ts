@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { InvoiceCreationGateway } from "../application/create-invoice-draft";
+import {
+  createInvoiceDraft,
+  type InvoiceCreationGateway,
+} from "../application/create-invoice-draft";
+import type { InvoicePdfRenderer } from "#lib/application/issue-invoice";
 import type { Invoice } from "../domain/model";
 import { serializeInvoice } from "../persistence/yaml-serializer";
 import { runCli, type CliDependencies, type CliIo } from "./run-cli";
@@ -11,6 +15,20 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
   let savedInvoice: Invoice | undefined;
   let gatewayDataDirectory: string | undefined;
   let updateGatewayDataDirectory: string | undefined;
+  let issueGatewayDataDirectory: string | undefined;
+  let rendererRepositoryRoot: string | undefined;
+  const renderSinglePagePdf = vi.fn<InvoicePdfRenderer["renderSinglePagePdf"]>(
+    async () => new Uint8Array([1, 2, 3]),
+  );
+  const commitIssuedInvoice = vi.fn(
+    async (_current: Invoice, issued: Invoice) => {
+      savedInvoice = issued;
+      return {
+        invoiceFilePath: `sales/invoices/2026/${issued.invoiceNumber}.yaml`,
+        pdfFilePath: `documents/2026/sales/invoices/ACME/${issued.pdf.issuedFileName}`,
+      };
+    },
+  );
   let lastReadInputPath: string | undefined;
   const inputSources = new Map<string, string>();
   const gateway: InvoiceCreationGateway = {
@@ -107,6 +125,24 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
         },
       };
     },
+    createIssueGateway(dataDirectory) {
+      issueGatewayDataDirectory = dataDirectory;
+      return {
+        async loadIssueContext() {
+          const context = await gateway.loadCreationContext();
+          return {
+            invoice: savedInvoice,
+            businessPartner: context.businessPartners[0],
+            taxCategories: context.taxCategories,
+          };
+        },
+        commitIssuedInvoice,
+      };
+    },
+    createPdfRenderer(repositoryRoot) {
+      rendererRepositoryRoot = repositoryRoot;
+      return { renderSinglePagePdf };
+    },
     async readInput(path) {
       lastReadInputPath = path;
       const source = inputSources.get(path);
@@ -129,6 +165,10 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
     savedInvoice: () => savedInvoice,
     gatewayDataDirectory: () => gatewayDataDirectory,
     updateGatewayDataDirectory: () => updateGatewayDataDirectory,
+    issueGatewayDataDirectory: () => issueGatewayDataDirectory,
+    rendererRepositoryRoot: () => rendererRepositoryRoot,
+    renderSinglePagePdf,
+    commitIssuedInvoice,
     lastReadInputPath: () => lastReadInputPath,
     setInput: (path: string, source: string) => inputSources.set(path, source),
   };
@@ -399,5 +439,207 @@ describe("keiri CLI", () => {
     expect(harness.stdout()).toContain(
       "操作結果: 請求書の下書きを複製しました。",
     );
+  });
+});
+
+async function createIssueHarness() {
+  const harness = createHarness();
+  const { invoice } = await createInvoiceDraft(
+    harness.dependencies.createGateway("/work/keiri-data"),
+    {
+      businessPartnerCode: "ACME",
+      paymentDueDate: "2026-11-30",
+      today: harness.dependencies.today,
+    },
+  );
+  invoice.lineItems.push({
+    name: "開発業務",
+    quantity: 1,
+    unit: "式",
+    unitPrice: 10_000,
+    taxCategoryId: "standard-10",
+  });
+  return harness;
+}
+
+describe("請求書発行CLI", () => {
+  it("保存済み下書きを発行しPDF保存先と更新後リビジョンを表示する", async () => {
+    const harness = await createIssueHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "issue",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(harness.issueGatewayDataDirectory()).toBe("/work/keiri-data");
+    expect(harness.rendererRepositoryRoot()).toBe("/work/keiri");
+    expect(harness.savedInvoice()).toMatchObject({
+      revision: 2,
+      status: "issued",
+    });
+    expect(harness.stdout()).toBe(
+      [
+        "操作結果: 請求書を発行しました。",
+        "請求書番号: ACME-202610-01",
+        "YAML保存先: sales/invoices/2026/ACME-202610-01.yaml",
+        "PDF保存先: documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+        "リビジョン: 2",
+        "",
+      ].join("\n"),
+    );
+    expect(harness.renderSinglePagePdf).toHaveBeenCalledOnce();
+    expect(harness.commitIssuedInvoice).toHaveBeenCalledOnce();
+    expect(harness.stderr()).toBe("");
+  });
+
+  it("期待リビジョンの指定を必須にする", async () => {
+    const harness = await createIssueHarness();
+    const exitCode = await runCli(
+      ["node", "keiri", "invoice", "issue", "ACME-202610-01"],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).not.toBe(0);
+    expect(harness.stderr()).toContain(
+      "必須のオプションが指定されていません。",
+    );
+    expect(harness.stderr()).toContain("--revision");
+    expect(harness.issueGatewayDataDirectory()).toBeUndefined();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    expect(harness.stdout()).toBe("");
+  });
+
+  it.each([
+    "0",
+    "-1",
+    "1.5",
+    "1abc",
+    "0x1",
+    "1e0",
+    "Infinity",
+    "9007199254740992",
+  ])("不正な期待リビジョン %s を発行処理の前に拒否する", async (revision) => {
+    const harness = createHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "issue",
+        "ACME-202610-01",
+        "--revision",
+        revision,
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).not.toBe(0);
+    expect(harness.stderr()).toContain("1以上の安全な整数");
+    expect(harness.stderr()).toContain("--revision");
+    expect(harness.issueGatewayDataDirectory()).toBeUndefined();
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    expect(harness.stdout()).toBe("");
+  });
+
+  it("リビジョン不一致時はPDFを生成せず下書きを維持する", async () => {
+    const harness = await createIssueHarness();
+    const before = structuredClone(harness.savedInvoice());
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "issue",
+        "ACME-202610-01",
+        "--revision",
+        "2",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("revision");
+    expect(harness.stderr()).toContain("一致しません");
+    expect(harness.savedInvoice()).toEqual(before);
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    expect(harness.stdout()).toBe("");
+  });
+
+  it("未来の発行日を実行日と照合して拒否する", async () => {
+    const harness = await createIssueHarness();
+    harness.savedInvoice()!.issueDate = "2026-10-26";
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "issue",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("issueDate");
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("PDF生成の失敗理由を標準エラーへ出力し成功を表示しない", async () => {
+    const harness = await createIssueHarness();
+    const before = structuredClone(harness.savedInvoice());
+    harness.renderSinglePagePdf.mockRejectedValueOnce(
+      new Error("フォントを読み込めません。"),
+    );
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "issue",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("フォントを読み込めません。");
+    expect(harness.stdout()).toBe("");
+    expect(harness.savedInvoice()).toEqual(before);
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("発行用ヘルプで期待リビジョンを案内する", async () => {
+    const harness = createHarness();
+    const exitCode = await runCli(
+      ["node", "keiri", "invoice", "issue", "--help"],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(0);
+    expect(harness.stdout()).toContain("--revision <期待リビジョン>");
+    expect(harness.stdout()).toContain("正式PDF");
+    expect(harness.stderr()).toBe("");
+    expect(harness.issueGatewayDataDirectory()).toBeUndefined();
   });
 });

@@ -1,4 +1,9 @@
-import { Command, CommanderError, type Help } from "commander";
+import {
+  Command,
+  CommanderError,
+  InvalidArgumentError,
+  type Help,
+} from "commander";
 
 import {
   createInvoiceDraft,
@@ -9,6 +14,11 @@ import {
   updateInvoiceDraft,
 } from "#lib/application/update-invoice-draft";
 import { duplicateInvoiceDraft } from "#lib/application/duplicate-invoice-draft";
+import {
+  issueInvoice,
+  type InvoiceIssueGateway,
+  type InvoicePdfRenderer,
+} from "#lib/application/issue-invoice";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { DataValidationError } from "#lib/persistence/data-validation-error";
 import { invoiceSchema } from "#lib/persistence/schemas";
@@ -29,6 +39,8 @@ export interface CliDependencies {
   today: string;
   createGateway(dataDirectory: string): InvoiceCreationGateway;
   createUpdateGateway(dataDirectory: string): InvoiceUpdateGateway;
+  createIssueGateway(dataDirectory: string): InvoiceIssueGateway;
+  createPdfRenderer(repositoryRoot: string): InvoicePdfRenderer;
   readInput(path: string): Promise<string>;
 }
 
@@ -193,8 +205,51 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
       },
     );
 
+  invoice
+    .command("issue")
+    .description("保存済みの請求書下書きを発行し、正式PDFを保存します。")
+    .argument("<請求書番号>", "発行する請求書番号")
+    .requiredOption(
+      "--revision <期待リビジョン>",
+      "確認済みのリビジョン",
+      parseRevision,
+    )
+    .action(async (invoiceNumber: string, options: { revision: number }) => {
+      const dataDirectory = resolveKeiriDataDirectory(
+        dependencies.repositoryRoot,
+        dependencies.environment,
+      );
+      const result = await issueInvoice(
+        dependencies.createIssueGateway(dataDirectory),
+        dependencies.createPdfRenderer(dependencies.repositoryRoot),
+        {
+          invoiceNumber,
+          expectedRevision: options.revision,
+          today: dependencies.today,
+        },
+      );
+      io.stdout.write(
+        [
+          "操作結果: 請求書を発行しました。",
+          `請求書番号: ${result.invoice.invoiceNumber}`,
+          `YAML保存先: ${result.invoiceFilePath}`,
+          `PDF保存先: ${result.pdfFilePath}`,
+          `リビジョン: ${result.invoice.revision}`,
+          "",
+        ].join("\n"),
+      );
+    });
+
   configureJapaneseOutput(program, io);
   return program;
+}
+
+function parseRevision(value: string): number {
+  const revision = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(revision) || revision < 1) {
+    throw new InvalidArgumentError("1以上の安全な整数を指定してください。");
+  }
+  return revision;
 }
 
 function configureJapaneseOutput(command: Command, io: CliIo): void {
@@ -269,6 +324,8 @@ function translateCommanderError(error: CommanderError): string {
       return `必須のオプションが指定されていません。${subject === undefined ? "" : `対象: ${subject}`}`;
     case "commander.optionMissingArgument":
       return `オプションの値が指定されていません。${subject === undefined ? "" : `対象: ${subject}`}`;
+    case "commander.invalidArgument":
+      return `オプションの値が不正です。1以上の安全な整数を指定してください。${subject === undefined ? "" : `対象: ${subject}`}`;
     case "commander.unknownCommand":
       return `未対応のコマンドです。${subject === undefined ? "" : `対象: ${subject}`}`;
     case "commander.unknownOption":

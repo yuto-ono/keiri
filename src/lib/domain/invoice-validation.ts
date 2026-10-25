@@ -1,6 +1,6 @@
-import { isBusinessDate, isBusinessDateAfter } from "./business-date";
-import type { DomainValidationIssue } from "./domain-validation-error";
-import type { Invoice } from "./model";
+import { isBusinessDate, isBusinessDateAfter } from "#lib/domain/business-date";
+import type { DomainValidationIssue } from "#lib/domain/domain-validation-error";
+import type { Invoice } from "#lib/domain/model";
 
 export function validateInvoiceForIssue(
   invoice: Invoice,

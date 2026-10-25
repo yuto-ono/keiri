@@ -1,14 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   InvoiceCreationContext,
   InvoiceCreationGateway,
 } from "../application/create-invoice-draft";
 import type { InvoiceUpdateGateway } from "#lib/application/update-invoice-draft";
+import type {
+  InvoiceIssueGateway,
+  InvoicePdfRenderer,
+} from "#lib/application/issue-invoice";
 import type { Invoice } from "#lib/domain/model";
 import {
   handleCreateInvoiceRequest,
   handleDuplicateInvoiceRequest,
+  handleIssueInvoiceRequest,
   handleUpdateInvoiceRequest,
 } from "./invoice-api";
 
@@ -176,6 +181,193 @@ describe("請求書作成API", () => {
       ],
     });
     expect(getSaveCount()).toBe(0);
+  });
+});
+
+function createIssueHarness() {
+  const context = createContext();
+  const invoice = createInvoice();
+  invoice.lineItems = [
+    {
+      name: "開発業務",
+      quantity: 1,
+      unit: "式",
+      unitPrice: 10_000,
+      taxCategoryId: "standard-10",
+    },
+  ];
+  const loadIssueContext = vi.fn<InvoiceIssueGateway["loadIssueContext"]>(
+    async () => ({
+      invoice,
+      businessPartner: context.businessPartners[0],
+      taxCategories: context.taxCategories,
+    }),
+  );
+  const commitIssuedInvoice = vi.fn<InvoiceIssueGateway["commitIssuedInvoice"]>(
+    async () => ({
+      invoiceFilePath: "sales/invoices/2026/ACME-202610-01.yaml",
+      pdfFilePath: "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+    }),
+  );
+  const renderSinglePagePdf = vi.fn<InvoicePdfRenderer["renderSinglePagePdf"]>(
+    async () => new Uint8Array([1, 2, 3]),
+  );
+  return {
+    invoice,
+    loadIssueContext,
+    commitIssuedInvoice,
+    renderSinglePagePdf,
+    dependencies: {
+      gateway: { loadIssueContext, commitIssuedInvoice },
+      renderer: { renderSinglePagePdf },
+      today: "2026-10-25",
+    },
+  };
+}
+
+const issueUrl = new URL(
+  "http://127.0.0.1:5173/api/invoices/ACME-202610-01/issue",
+);
+
+function createIssueRequest(
+  body: string,
+  origin: string | null = issueUrl.origin,
+) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (origin !== null) {
+    headers.origin = origin;
+  }
+  return new Request(issueUrl, { method: "POST", headers, body });
+}
+
+describe("請求書発行API", () => {
+  it("保存済み下書きと期待リビジョンから発行しPDF保存先を返す", async () => {
+    const harness = createIssueHarness();
+    const response = await handleIssueInvoiceRequest(
+      createIssueRequest(JSON.stringify({ revision: 1 })),
+      issueUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      invoice: {
+        revision: 2,
+        status: "issued",
+        pdf: { issuedFileName: "ACME-202610-01.pdf" },
+      },
+      invoiceFilePath: "sales/invoices/2026/ACME-202610-01.yaml",
+      pdfFilePath: "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+    });
+    expect(harness.loadIssueContext).toHaveBeenCalledWith("ACME-202610-01");
+    expect(harness.renderSinglePagePdf).toHaveBeenCalledOnce();
+    expect(harness.commitIssuedInvoice).toHaveBeenCalledOnce();
+  });
+
+  it.each(["https://example.com", null])(
+    "外部または未指定のOrigin %s を読み込み前に拒否する",
+    async (origin) => {
+      const harness = createIssueHarness();
+      const response = await handleIssueInvoiceRequest(
+        createIssueRequest(JSON.stringify({ revision: 1 }), origin),
+        issueUrl,
+        "ACME-202610-01",
+        harness.dependencies,
+      );
+
+      expect(response.status).toBe(403);
+      expect(harness.loadIssueContext).not.toHaveBeenCalled();
+      expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+      expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "{",
+    "null",
+    "{}",
+    '{"revision":"1"}',
+    '{"revision":0}',
+    '{"revision":1.5}',
+    '{"revision":9007199254740992}',
+    '{"revision":1,"notes":"未保存の変更"}',
+    '{"revision":1,"status":"issued"}',
+  ])("不正なJSON・リビジョン・追加項目を400で拒否する: %s", async (body) => {
+    const harness = createIssueHarness();
+    const response = await handleIssueInvoiceRequest(
+      createIssueRequest(body),
+      issueUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(400);
+    expect(harness.loadIssueContext).not.toHaveBeenCalled();
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("リビジョン不一致を422で返し発行しない", async () => {
+    const harness = createIssueHarness();
+    const before = structuredClone(harness.invoice);
+    const response = await handleIssueInvoiceRequest(
+      createIssueRequest(JSON.stringify({ revision: 2 })),
+      issueUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: [
+        expect.objectContaining({
+          path: ["revision"],
+          message: expect.stringContaining("一致しません"),
+        }),
+      ],
+    });
+    expect(harness.invoice).toEqual(before);
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("未来の発行日を現在日と照合して拒否する", async () => {
+    const harness = createIssueHarness();
+    harness.invoice.issueDate = "2026-10-26";
+    const response = await handleIssueInvoiceRequest(
+      createIssueRequest(JSON.stringify({ revision: 1 })),
+      issueUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: [expect.objectContaining({ path: ["issueDate"] })],
+    });
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("PDF生成失敗を成功として返さず状態を保存しない", async () => {
+    const harness = createIssueHarness();
+    const failure = new Error("フォントを読み込めません。");
+    harness.renderSinglePagePdf.mockRejectedValueOnce(failure);
+    await expect(
+      handleIssueInvoiceRequest(
+        createIssueRequest(JSON.stringify({ revision: 1 })),
+        issueUrl,
+        "ACME-202610-01",
+        harness.dependencies,
+      ),
+    ).rejects.toBe(failure);
+
+    expect(harness.invoice.status).toBe("draft");
+    expect(harness.invoice.revision).toBe(1);
+    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
   });
 });
 

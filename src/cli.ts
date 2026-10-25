@@ -4,6 +4,8 @@ import { runCli } from "#lib/cli/run-cli";
 import { todayInTokyo } from "#lib/domain/business-date";
 import { FileInvoiceCreationGateway } from "#lib/server/file-invoice-creation-gateway";
 import { FileInvoiceUpdateGateway } from "#lib/server/file-invoice-update-gateway";
+import { FileInvoiceIssueGateway } from "#lib/server/file-invoice-issue-gateway";
+import { PlaywrightInvoicePdfRenderer } from "#lib/server/playwright-invoice-pdf-renderer";
 
 const exitCode = await runCli(
   process.argv,
@@ -15,6 +17,10 @@ const exitCode = await runCli(
       new FileInvoiceCreationGateway(dataDirectory),
     createUpdateGateway: (dataDirectory) =>
       new FileInvoiceUpdateGateway(dataDirectory),
+    createIssueGateway: (dataDirectory) =>
+      new FileInvoiceIssueGateway(dataDirectory),
+    createPdfRenderer: (repositoryRoot) =>
+      new PlaywrightInvoicePdfRenderer(repositoryRoot),
     readInput: async (path) =>
       path === "-" ? readStandardInput() : readFile(path, "utf8"),
   },
