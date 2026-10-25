@@ -18,6 +18,13 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
   let issueGatewayDataDirectory: string | undefined;
   let rendererRepositoryRoot: string | undefined;
   let revertGatewayDataDirectory: string | undefined;
+  let deletionGatewayDataDirectory: string | undefined;
+  const deleteInvoice = vi.fn(async (invoice: Invoice) => {
+    savedInvoice = undefined;
+    return {
+      filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+    };
+  });
   const renderSinglePagePdf = vi.fn<InvoicePdfRenderer["renderSinglePagePdf"]>(
     async () => new Uint8Array([1, 2, 3]),
   );
@@ -158,6 +165,15 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
         commitRevertedInvoice,
       };
     },
+    createDeletionGateway(dataDirectory) {
+      deletionGatewayDataDirectory = dataDirectory;
+      return {
+        async loadInvoice() {
+          return savedInvoice;
+        },
+        deleteInvoice,
+      };
+    },
     createPdfRenderer(repositoryRoot) {
       rendererRepositoryRoot = repositoryRoot;
       return { renderSinglePagePdf };
@@ -188,6 +204,8 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
     rendererRepositoryRoot: () => rendererRepositoryRoot,
     revertGatewayDataDirectory: () => revertGatewayDataDirectory,
     commitRevertedInvoice,
+    deletionGatewayDataDirectory: () => deletionGatewayDataDirectory,
+    deleteInvoice,
     renderSinglePagePdf,
     commitIssuedInvoice,
     lastReadInputPath: () => lastReadInputPath,
@@ -787,6 +805,124 @@ describe("請求書の下書き戻しCLI", () => {
     );
     expect(exitCode).toBe(1);
     expect(harness.stderr()).toContain("PDFを破棄できません。");
+    expect(harness.stdout()).toBe("");
+    expect(harness.savedInvoice()).toEqual(before);
+  });
+});
+
+describe("請求書下書きの削除CLI", () => {
+  it("下書きを削除し、番号とYAMLパスを表示する", async () => {
+    const harness = await createIssueHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "delete",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(0);
+    expect(harness.deletionGatewayDataDirectory()).toBe("/work/keiri-data");
+    expect(harness.savedInvoice()).toBeUndefined();
+    expect(harness.stdout()).toBe(
+      [
+        "操作結果: 請求書の下書きを削除しました。",
+        "請求書番号: ACME-202610-01",
+        "YAML保存先: sales/invoices/2026/ACME-202610-01.yaml",
+        "",
+      ].join("\n"),
+    );
+    expect(harness.stderr()).toBe("");
+    expect(harness.deleteInvoice).toHaveBeenCalledOnce();
+  });
+
+  it.each([{ options: [] }, { options: ["--revision", "0"] }])(
+    "期待リビジョンの不足・不正を拒否する: $options",
+    async ({ options }) => {
+      const harness = createHarness();
+      const exitCode = await runCli(
+        ["node", "keiri", "invoice", "delete", "ACME-202610-01", ...options],
+        harness.dependencies,
+        harness.io,
+      );
+      expect(exitCode).not.toBe(0);
+      expect(harness.stderr()).toContain("--revision");
+      expect(harness.stdout()).toBe("");
+      expect(harness.deletionGatewayDataDirectory()).toBeUndefined();
+      expect(harness.deleteInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it("リビジョン不一致を標準エラーへ出力し削除しない", async () => {
+    const harness = await createIssueHarness();
+    const before = structuredClone(harness.savedInvoice());
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "delete",
+        "ACME-202610-01",
+        "--revision",
+        "2",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("revision");
+    expect(harness.stdout()).toBe("");
+    expect(harness.savedInvoice()).toEqual(before);
+    expect(harness.deleteInvoice).not.toHaveBeenCalled();
+  });
+
+  it("発行済み請求書を拒否し、先に下書きへ戻すよう案内する", async () => {
+    const harness = await createRevertToDraftHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "delete",
+        "ACME-202610-01",
+        "--revision",
+        "2",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("先に下書きへ戻してください");
+    expect(harness.stdout()).toBe("");
+    expect(harness.deleteInvoice).not.toHaveBeenCalled();
+  });
+
+  it("削除の失敗理由を標準エラーへ出力し成功を表示しない", async () => {
+    const harness = await createIssueHarness();
+    const before = structuredClone(harness.savedInvoice());
+    harness.deleteInvoice.mockRejectedValueOnce(
+      new Error("YAMLを削除できません。"),
+    );
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "delete",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("YAMLを削除できません。");
     expect(harness.stdout()).toBe("");
     expect(harness.savedInvoice()).toEqual(before);
   });

@@ -99,3 +99,18 @@ export function validateInvoiceForRevertToDraft(
   }
   return issues;
 }
+
+export function validateInvoiceForDeletion(
+  invoice: Invoice,
+): DomainValidationIssue[] {
+  if (invoice.status !== "draft") {
+    return [
+      {
+        path: ["status"],
+        message:
+          "削除できるのは下書きの請求書だけです。発行済みの請求書は先に下書きへ戻してください。",
+      },
+    ];
+  }
+  return [];
+}

@@ -20,6 +20,10 @@ import {
   revertInvoiceToDraft,
   type InvoiceRevertToDraftGateway,
 } from "#lib/application/revert-invoice-to-draft";
+import {
+  deleteInvoiceDraft,
+  type InvoiceDeletionGateway,
+} from "#lib/application/delete-invoice-draft";
 import { invoiceSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "./data-directory";
 import { KeiriDataLoadError } from "./keiri-data-loader";
@@ -64,6 +68,10 @@ export interface IssueInvoiceApiDependencies {
 
 export interface RevertInvoiceToDraftApiDependencies {
   gateway: InvoiceRevertToDraftGateway;
+}
+
+export interface DeleteInvoiceApiDependencies {
+  gateway: InvoiceDeletionGateway;
 }
 
 export async function handleCreateInvoiceRequest(
@@ -363,6 +371,69 @@ export async function handleRevertInvoiceToDraftRequest(
 
   try {
     const result = await revertInvoiceToDraft(dependencies.gateway, {
+      invoiceNumber,
+      expectedRevision: parsed.data.revision,
+    });
+    return json(result);
+  } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 422 },
+      );
+    }
+    if (error instanceof KeiriDataLoadError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 500 },
+      );
+    }
+    if (error instanceof DataDirectoryConfigurationError) {
+      return json({ message: error.message }, { status: 500 });
+    }
+    throw error;
+  }
+}
+
+export async function handleDeleteInvoiceRequest(
+  request: Request,
+  requestUrl: URL,
+  invoiceNumber: string,
+  dependencies: DeleteInvoiceApiDependencies,
+): Promise<Response> {
+  if (request.headers.get("origin") !== requestUrl.origin) {
+    return json(
+      { message: "同一オリジン以外からの書き込みは受け付けません。" },
+      { status: 403 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json(
+      { message: "リクエスト本文をJSONとして解析できません。" },
+      { status: 400 },
+    );
+  }
+
+  const parsed = invoiceRevisionRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(
+      {
+        message: "請求書の削除条件が不正です。",
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path,
+          message: issue.message,
+        })),
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const result = await deleteInvoiceDraft(dependencies.gateway, {
       invoiceNumber,
       expectedRevision: parsed.data.revision,
     });

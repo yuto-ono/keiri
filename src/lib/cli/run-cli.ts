@@ -23,6 +23,10 @@ import {
   revertInvoiceToDraft,
   type InvoiceRevertToDraftGateway,
 } from "#lib/application/revert-invoice-to-draft";
+import {
+  deleteInvoiceDraft,
+  type InvoiceDeletionGateway,
+} from "#lib/application/delete-invoice-draft";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { DataValidationError } from "#lib/persistence/data-validation-error";
 import { invoiceSchema } from "#lib/persistence/schemas";
@@ -48,6 +52,7 @@ export interface CliDependencies {
     dataDirectory: string,
   ): InvoiceRevertToDraftGateway;
   createPdfRenderer(repositoryRoot: string): InvoicePdfRenderer;
+  createDeletionGateway(dataDirectory: string): InvoiceDeletionGateway;
   readInput(path: string): Promise<string>;
 }
 
@@ -272,6 +277,34 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
           `YAML保存先: ${result.invoiceFilePath}`,
           `破棄したPDF: ${result.pdfFilePath}`,
           `リビジョン: ${result.invoice.revision}`,
+          "",
+        ].join("\n"),
+      );
+    });
+
+  invoice
+    .command("delete")
+    .description("請求書の下書きを完全に削除します。")
+    .argument("<請求書番号>", "削除する下書きの請求書番号")
+    .requiredOption(
+      "--revision <期待リビジョン>",
+      "確認済みのリビジョン",
+      parseRevision,
+    )
+    .action(async (invoiceNumber: string, options: { revision: number }) => {
+      const dataDirectory = resolveKeiriDataDirectory(
+        dependencies.repositoryRoot,
+        dependencies.environment,
+      );
+      const result = await deleteInvoiceDraft(
+        dependencies.createDeletionGateway(dataDirectory),
+        { invoiceNumber, expectedRevision: options.revision },
+      );
+      io.stdout.write(
+        [
+          "操作結果: 請求書の下書きを削除しました。",
+          `請求書番号: ${result.invoiceNumber}`,
+          `YAML保存先: ${result.filePath}`,
           "",
         ].join("\n"),
       );

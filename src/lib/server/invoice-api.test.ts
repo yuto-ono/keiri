@@ -10,9 +10,11 @@ import type {
   InvoicePdfRenderer,
 } from "#lib/application/issue-invoice";
 import type { InvoiceRevertToDraftGateway } from "#lib/application/revert-invoice-to-draft";
+import type { InvoiceDeletionGateway } from "#lib/application/delete-invoice-draft";
 import type { Invoice } from "#lib/domain/model";
 import {
   handleCreateInvoiceRequest,
+  handleDeleteInvoiceRequest,
   handleDuplicateInvoiceRequest,
   handleIssueInvoiceRequest,
   handleRevertInvoiceToDraftRequest,
@@ -665,5 +667,124 @@ describe("請求書複製API", () => {
     );
     expect(response.status).toBe(422);
     expect(harness.getSaveCount()).toBe(0);
+  });
+});
+
+function createDeletionHarness() {
+  const invoice = createInvoice();
+  const loadInvoice = vi.fn<InvoiceDeletionGateway["loadInvoice"]>(
+    async () => invoice,
+  );
+  const deleteInvoice = vi.fn<InvoiceDeletionGateway["deleteInvoice"]>(
+    async () => ({ filePath: "sales/invoices/2026/ACME-202610-01.yaml" }),
+  );
+  return {
+    invoice,
+    loadInvoice,
+    deleteInvoice,
+    dependencies: { gateway: { loadInvoice, deleteInvoice } },
+  };
+}
+
+const deleteUrl = new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01");
+
+function createDeleteRequest(
+  body: string,
+  origin: string | null = deleteUrl.origin,
+) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (origin !== null) {
+    headers.origin = origin;
+  }
+  return new Request(deleteUrl, { method: "DELETE", headers, body });
+}
+
+describe("請求書下書きの削除API", () => {
+  it("期待リビジョンを照合して下書きを削除し、番号とパスを返す", async () => {
+    const harness = createDeletionHarness();
+    const response = await handleDeleteInvoiceRequest(
+      createDeleteRequest('{"revision":1}'),
+      deleteUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      invoiceNumber: "ACME-202610-01",
+      filePath: "sales/invoices/2026/ACME-202610-01.yaml",
+    });
+    expect(harness.loadInvoice).toHaveBeenCalledWith("ACME-202610-01");
+    expect(harness.deleteInvoice).toHaveBeenCalledWith(harness.invoice);
+    expect(harness.deleteInvoice).toHaveBeenCalledOnce();
+  });
+
+  it.each(["https://example.com", null])(
+    "外部または未指定のOrigin %s を読み込み前に拒否する",
+    async (origin) => {
+      const harness = createDeletionHarness();
+      const response = await handleDeleteInvoiceRequest(
+        createDeleteRequest('{"revision":1}', origin),
+        deleteUrl,
+        "ACME-202610-01",
+        harness.dependencies,
+      );
+      expect(response.status).toBe(403);
+      expect(harness.loadInvoice).not.toHaveBeenCalled();
+      expect(harness.deleteInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "{",
+    "{}",
+    '{"revision":"1"}',
+    '{"revision":0}',
+    '{"revision":1,"status":"draft"}',
+  ])("本文が不正な場合は400で拒否する: %s", async (body) => {
+    const harness = createDeletionHarness();
+    const response = await handleDeleteInvoiceRequest(
+      createDeleteRequest(body),
+      deleteUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(400);
+    expect(harness.loadInvoice).not.toHaveBeenCalled();
+    expect(harness.deleteInvoice).not.toHaveBeenCalled();
+  });
+
+  it("発行済み状態とリビジョン不一致を422で返し削除しない", async () => {
+    const harness = createDeletionHarness();
+    harness.invoice.status = "issued";
+    harness.invoice.pdf.issuedFileName = "請求書.pdf";
+    const response = await handleDeleteInvoiceRequest(
+      createDeleteRequest('{"revision":2}'),
+      deleteUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: ["status"] }),
+        expect.objectContaining({ path: ["revision"] }),
+      ]),
+    });
+    expect(harness.deleteInvoice).not.toHaveBeenCalled();
+  });
+
+  it("存在しない請求書を422で拒否する", async () => {
+    const harness = createDeletionHarness();
+    harness.loadInvoice.mockResolvedValueOnce(undefined);
+    const response = await handleDeleteInvoiceRequest(
+      createDeleteRequest('{"revision":1}'),
+      deleteUrl,
+      "MISSING-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(422);
+    expect(harness.deleteInvoice).not.toHaveBeenCalled();
   });
 });

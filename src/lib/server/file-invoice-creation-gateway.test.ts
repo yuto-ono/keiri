@@ -23,6 +23,7 @@ import {
 } from "../application/issue-invoice";
 import { updateInvoiceDraft } from "../application/update-invoice-draft";
 import { revertInvoiceToDraft } from "#lib/application/revert-invoice-to-draft";
+import { deleteInvoiceDraft } from "#lib/application/delete-invoice-draft";
 import type { BusinessPartner, Issuer } from "../domain/model";
 import { invoiceSchema } from "../persistence/schemas";
 import { parseYaml } from "../persistence/yaml-parser";
@@ -35,6 +36,7 @@ import { FileInvoiceCreationGateway } from "./file-invoice-creation-gateway";
 import { FileInvoiceIssueGateway } from "./file-invoice-issue-gateway";
 import { FileInvoiceUpdateGateway } from "./file-invoice-update-gateway";
 import { FileInvoiceRevertToDraftGateway } from "./file-invoice-revert-to-draft-gateway";
+import { FileInvoiceDeletionGateway } from "./file-invoice-deletion-gateway";
 import { loadKeiriData } from "./keiri-data-loader";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -327,6 +329,122 @@ async function createPopulatedDraft() {
     },
   );
 }
+
+describe("ファイルシステムを使う請求書下書きの削除", () => {
+  it("取引年に保存されたYAMLだけを削除し、月次進捗と利用者管理のPDFは変更しない", async () => {
+    const draft = await createPopulatedDraft();
+    const moved = await updateInvoiceDraft(
+      new FileInvoiceUpdateGateway(dataRoot),
+      draft.invoice.invoiceNumber,
+      { ...draft.invoice, transactionDate: "2025-12-31" },
+    );
+    const monthlyPath = join(dataRoot, "monthly-billing/2026-10.md");
+    const pdfDirectory = join(dataRoot, "documents/2025/sales/invoices/ACME");
+    const pdfPath = join(pdfDirectory, "利用者管理.pdf");
+    await writeFile(monthlyPath, "月次業務の進捗は手動で管理する\n");
+    await mkdir(pdfDirectory, { recursive: true });
+    await writeFile(pdfPath, "利用者が管理するPDF");
+
+    const result = await deleteInvoiceDraft(
+      new FileInvoiceDeletionGateway(dataRoot),
+      {
+        invoiceNumber: moved.invoice.invoiceNumber,
+        expectedRevision: moved.invoice.revision,
+      },
+    );
+
+    expect(result).toEqual({
+      invoiceNumber: moved.invoice.invoiceNumber,
+      filePath: moved.filePath,
+    });
+    await expect(
+      readFile(join(dataRoot, moved.filePath)),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([]);
+    expect(await readFile(monthlyPath, "utf8")).toBe(
+      "月次業務の進捗は手動で管理する\n",
+    );
+    expect(await readFile(pdfPath, "utf8")).toBe("利用者が管理するPDF");
+    await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
+      invoices: [],
+    });
+  });
+
+  it.each([
+    { description: "最新番号", deletedIndex: 2, nextSequence: "03" },
+    { description: "途中の番号", deletedIndex: 1, nextSequence: "04" },
+  ])(
+    "$description を削除した後は $nextSequence を採番する",
+    async ({ deletedIndex, nextSequence }) => {
+      const gateway = new FileInvoiceCreationGateway(dataRoot);
+      const input = {
+        businessPartnerCode: "ACME",
+        paymentDueDate: "2026-11-30",
+        today: "2026-10-25",
+      };
+      const drafts = [];
+      for (let index = 0; index < 3; index += 1) {
+        drafts.push(await createInvoiceDraft(gateway, input));
+      }
+      const target = drafts[deletedIndex];
+      await deleteInvoiceDraft(new FileInvoiceDeletionGateway(dataRoot), {
+        invoiceNumber: target.invoice.invoiceNumber,
+        expectedRevision: target.invoice.revision,
+      });
+      const next = await createInvoiceDraft(gateway, input);
+      expect(next.invoice.invoiceNumber).toBe(`ACME-202610-${nextSequence}`);
+      for (const draft of drafts.filter((_, index) => index !== deletedIndex)) {
+        expect(
+          parseYaml(
+            await readFile(join(dataRoot, draft.filePath), "utf8"),
+            draft.filePath,
+            invoiceSchema,
+          ),
+        ).toEqual(draft.invoice);
+      }
+    },
+  );
+
+  it("削除に失敗した場合は元のYAMLを維持する", async () => {
+    const draft = await createPopulatedDraft();
+    const original = await readFile(join(dataRoot, draft.filePath), "utf8");
+    const failure = new Error("YAMLを削除できません。");
+    vi.mocked(unlink).mockRejectedValueOnce(failure);
+    await expect(
+      deleteInvoiceDraft(new FileInvoiceDeletionGateway(dataRoot), {
+        invoiceNumber: draft.invoice.invoiceNumber,
+        expectedRevision: draft.invoice.revision,
+      }),
+    ).rejects.toBe(failure);
+    expect(await readFile(join(dataRoot, draft.filePath), "utf8")).toBe(
+      original,
+    );
+    expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([
+      "ACME-202610-01.yaml",
+    ]);
+  });
+
+  it("発行済み請求書の削除を拒否し、YAMLと正式PDFを維持する", async () => {
+    const issued = await createIssuedInvoice();
+    const originalYaml = await readFile(
+      join(dataRoot, issued.invoiceFilePath),
+      "utf8",
+    );
+    const originalPdf = await readFile(join(dataRoot, issued.pdfFilePath));
+    await expect(
+      deleteInvoiceDraft(new FileInvoiceDeletionGateway(dataRoot), {
+        invoiceNumber: issued.invoice.invoiceNumber,
+        expectedRevision: issued.invoice.revision,
+      }),
+    ).rejects.toThrow("請求書を削除できません");
+    expect(await readFile(join(dataRoot, issued.invoiceFilePath), "utf8")).toBe(
+      originalYaml,
+    );
+    expect(await readFile(join(dataRoot, issued.pdfFilePath))).toEqual(
+      originalPdf,
+    );
+  });
+});
 
 async function createPdf(pageCount: number): Promise<Uint8Array> {
   const document = await PDFDocument.create();

@@ -19,9 +19,13 @@ afterEach(async () => {
 });
 
 describe("CLIの起動", () => {
-  it.each(["issue", "revert-to-draft"])(
-    "Node.js標準の環境ファイル読み込みで %s のヘルプを表示する",
-    (command) => {
+  it.each([
+    { command: "issue", description: "正式PDF" },
+    { command: "revert-to-draft", description: "正式PDF" },
+    { command: "delete", description: "完全に削除" },
+  ])(
+    "Node.js標準の環境ファイル読み込みで $command のヘルプを表示する",
+    ({ command, description }) => {
       const result = spawnSync(
         process.execPath,
         ["--env-file=.env", entrypoint, "invoice", command, "--help"],
@@ -31,7 +35,7 @@ describe("CLIの起動", () => {
       expect(result.error).toBeUndefined();
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("--revision <期待リビジョン>");
-      expect(result.stdout).toContain("正式PDF");
+      expect(result.stdout).toContain(description);
       expect(result.stderr).toBe("");
     },
   );
