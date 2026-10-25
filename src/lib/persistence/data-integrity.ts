@@ -1,5 +1,6 @@
 import { isBusinessDateAfter } from "#lib/domain/business-date";
 import { validateBusinessPartnerIssuerDisplay } from "#lib/domain/business-partner";
+import { validateIssuerBankAccountReferences } from "#lib/domain/issuer";
 import type {
   BusinessPartner,
   Invoice,
@@ -105,32 +106,12 @@ function validateIssuer(
   const { data: issuer, filePath } = record;
   expectFilePath(filePath, `issuers/${issuer.id}.yaml`, issues);
 
-  const seenIds = new Map<string, number>();
-  issuer.bankAccounts.forEach((account, index) => {
-    const normalized = account.id.toLowerCase();
-    const firstIndex = seenIds.get(normalized);
-    if (firstIndex !== undefined) {
-      issues.push({
-        filePath,
-        path: ["bankAccounts", index, "id"],
-        message: `振込先ID ${account.id} は bankAccounts[${firstIndex}] と大文字・小文字を区別せず重複しています。`,
-      });
-    } else {
-      seenIds.set(normalized, index);
-    }
-  });
-
-  if (
-    !issuer.bankAccounts.some(
-      (account) => account.id === issuer.defaultBankAccountId,
-    )
-  ) {
-    issues.push({
+  issues.push(
+    ...validateIssuerBankAccountReferences(issuer).map((issue) => ({
+      ...issue,
       filePath,
-      path: ["defaultBankAccountId"],
-      message: `既定の振込先 ${issuer.defaultBankAccountId} がbankAccountsに存在しません。`,
-    });
-  }
+    })),
+  );
 }
 
 function validateBusinessPartner(
