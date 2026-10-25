@@ -10,6 +10,91 @@
 
 利用者の発言だけでは決められない事項は、実装せず確認する。検討材料を提示するときは、確定事項と案を明確に分ける。
 
+## 技術スタック
+
+SvelteKit（SSR無効・adapter-node） / Svelte 5 / TypeScript / Vite / `yaml` / Zod / `bignumber.js` / `date-fns` / `@date-fns/tz` / `pdf-lib` / Commander / Vitest / Playwright / ESLint / `svelte-check` / Prettier / `prettier-plugin-svelte`
+
+パッケージ管理にはpnpmを使用する。
+
+`package.json` の直接依存は完全なバージョンへ固定し、範囲指定を使用しない。`pnpm-lock.yaml` をGitで管理する。依存更新は更新内容を確認する独立した作業として行い、通常のインストールに伴って暗黙に更新しない。
+
+Node.jsとpnpmは、リポジトリルートの `mise.toml` で完全なバージョンへ固定する。初期バージョンは採用パッケージとの互換性を確認して選定し、その後の更新は独立した作業として行う。
+
+### 参考実装
+
+同階層の `kadou` は、SvelteKitのセットアップ、開発ツールの構成および実装パターンを検討するときの参考実装として利用できる。ただし、keiriの仕様、責務の境界およびリポジトリ内の規約を正とし、`kadou` 固有の設計を機械的にコピーしない。keiriの実行、ビルドおよびテストは、`kadou` の配置、コードまたは設定に依存させない。
+
+この案内は初期構築中だけの一時的なものとする。SvelteKitと開発ツールの設定、ディレクトリ構成と依存境界、Svelte 5の代表的な実装パターン、およびlint・check・test・format・buildの実行環境がkeiri内に揃った時点で、この「参考実装」節をAGENTS.mdから削除する。それ以降はkeiri自身のコード、設定、SPEC.mdおよびAGENTS.mdだけを正とする。
+
+### Svelte 5 runesを使う
+
+`$state`、`$derived`、`$props` などのSvelte 5 runesを使う。Svelte 4以前のstore記法や `export let` など、旧来の書き方を新しく導入しない。インストールされているバージョンとリポジトリ内の規約を正とし、古いバージョン向けの実装例を混在させない。
+
+### フォームとCSS
+
+初期版ではフォームライブラリを導入せず、Svelteの状態管理と `bind:` を使う。正式な検証規則をSvelteコンポーネント内に閉じ込めない。
+
+スタイルには通常のCSSを使用する。Sass、Tailwind CSS、CSS-in-JSおよびUIコンポーネントライブラリは、具体的な必要性を確認するまで導入しない。通常画面用のスタイルと、請求書PDFの印刷用スタイルの責務を区別する。
+
+## アーキテクチャ
+
+中核の業務ロジックはSvelteKitから独立した純粋なTypeScriptとして実装する。責務を次のように分け、依存方向を内側へ向ける。
+
+```text
+domain/        請求、税計算、検証、状態遷移などの規則
+application/   下書き作成、発行、下書き戻しなどのユースケース
+persistence/   YAMLとの相互変換および正規化
+server/        ファイルI/O、HTTP APIおよびPDF生成
+cli/           application層を呼び出すpnpm経由の入口
+ui/            Svelteによる画面
+```
+
+`domain/` は、Svelte、SvelteKit、Node.jsのファイルAPIおよびYAML形式を知らない。`application/` は、CLIおよびSvelteKitのserver routeから共用し、入口ごとに業務ロジックを重複させない。UI側の検証は操作性のために行うものであり、書き込み時はapplication層で必ず再検証する。
+
+ブラウザUIからの読み書きには `+server.ts` の同一オリジンJSON APIを使用し、form actionsは使用しない。server routeはHTTPとapplication層を接続する薄い入口とし、業務ロジックを置かない。
+
+請求書の通常編集と、発行、下書き戻し、削除および複製は、JSON APIでも別の操作として表現する。通常編集用の入口で状態を直接変更せず、操作ごとに対応するapplication層のユースケースを呼ぶ。
+
+確定済みの層の責務と依存方向は、ESLintの `no-restricted-imports` で検査する。専用のアーキテクチャ検査プラグインは追加しない。少なくとも、domain層から外側の層、Svelte、SvelteKit、Node.js APIおよびYAMLへの依存と、persistence層からserver、cli、ui、Svelte、SvelteKitおよびNode.jsのファイルAPIへの依存を禁止する。未確定の境界を将来の可能性だけで規則に追加しない。
+
+YAMLから読み込んだ未知データの構造、型、必須項目および未定義キーの検証にはZodを使用する。参照整合性、税計算、状態遷移その他の業務規則をZodスキーマへ集約せず、純粋なTypeScriptとして適切な層に実装する。
+
+YAMLは `yaml` のYAML 1.2 core schemaを `parseDocument` で解析する。パーサーが構文エラーまたは警告を返した場合は、対象ファイル、位置および理由を示して読み込みを拒否する。重複キーを許容せず、数値スカラーはJavaScriptの `number` として境界で有限性、安全な整数、小数桁数および項目ごとの範囲を検証してからdomain層へ渡す。精度を失った値を後段の十進計算で復元できるものとは扱わない。
+
+独立したYAMLファイルは1ファイル1ドキュメントとし、ドキュメント開始記号 `---` と終了記号 `...` を許可しない。月次請求MarkdownのFront Matterを囲む `---` はこの規則の対象外とする。
+
+YAMLのアンカー、エイリアスおよびマージキーは許可せず、検出した場合は読み込みを拒否する。
+
+YAMLの明示的な型タグは、標準タグと独自タグのどちらも許可しない。値の型は通常のYAML表現、YAML 1.2 core schemaおよびkeiriのスキーマで決定する。
+
+YAMLのコメントと入力時の書式は正式なデータとして扱わず、保存後の保持を保証しない。保存時は検証済みの構造化データからYAML全体を生成する。
+
+YAMLのキーは、ファイル種別とオブジェクト構造ごとに定めた読みやすい固定順で出力し、同じ構造の保存結果とGit差分を安定させる。アルファベット順への一律の並べ替えや、実装上の偶然に依存した順序にはしない。
+
+YAMLの保存形式は2スペースインデント、LF改行、ファイル末尾の改行1つに統一する。読み込み時の有効な別インデントとCRLFは許可するが、保存時に正規化する。
+
+文字列は、安全に同じ文字列型へ読み戻せる場合はプレーン形式で出力し、別の型またはYAML構文として解釈され得る場合だけ引用符を付ける。すべての文字列を一律に引用符で囲まない。
+
+複数行文字列は本文中の改行と空行を維持し、末尾に連続する改行をすべて取り除いてリテラルブロックの `|-` で出力する。
+
+明細金額、消費税額および請求合計の十進計算には `bignumber.js` を使用し、仕様で定めた箇所だけで明示的に円単位へ丸める。`BigNumber` 型をYAML構造、UIの状態またはapplication層の公開データへ広げず、domain層の金額計算モジュール内に閉じ込める。
+
+外部との境界だけを抽象化する。将来の可能性だけを理由にinterfaceや層を増やさない。
+
+YAMLとPDFは、最終的な保存先と同じファイルシステム上の一時ファイルへ書き込み、検証後にatomic renameで反映する。通常の処理失敗では一時ファイルを除去して変更前の状態を維持する。異常終了向けの操作ジャーナルおよび複数ファイルのトランザクションは設けない。
+
+初期版の自動テストはVitestに統一する。CLIの入口を、入出力と環境を注入できる処理から分離し、大部分を関数レベルでテストする。実際のCLIを起動する子プロセス結合テストは、入口の配線、標準入出力および終了コードを確認する少数に限定する。初期版ではSvelteコンポーネントテストとブラウザE2Eテストを設けず、PlaywrightはPDF生成にだけ使用する。
+
+CLIの引数解析、サブコマンド、必須引数・オプションおよびヘルプにはCommanderを使用する。Commanderのaction handlerは解析済みの入力からapplication層を呼び出す薄い境界とし、業務ロジックを置かない。出力先を注入し、CLI処理内で直接 `process.exit()` を実行しない。
+
+`pdf-lib` は、PlaywrightとChromiumで生成したPDFのページ数を `PDFDocument.load()` と `getPageCount()` で確認するためだけに使用する。PDF生成、フォント解析および内容抽出へ用途を広げない。
+
+コードとコード系設定の整形にはPrettierとSvelte 5対応の公式 `prettier-plugin-svelte` を使用する。文書、YAMLおよびYAML雛形は対象外とする。ESLintはコード品質、Prettierは書式を担当し、PrettierをESLintルールとして実行しない。`format` と `format:check` をpackage scriptとして設ける。pre-commit hookおよびエディタの自動保存時整形は強制しない。
+
+Prettierと `prettier-plugin-svelte` の書式オプションは上書きせず、固定したバージョンの既定値を使用する。依存更新時は既定値の変更と整形差分を確認する。
+
+Svelteの空白の意味を保つ場合など、必要な箇所に限って、理由を直前のコメントへ記録したうえで最小のノードへ `prettier-ignore` を使用できる。単なる好みを理由に広い範囲を無視せず、`htmlWhitespaceSensitivity` を全体で `ignore` にしない。
+
 ## ドキュメント
 
 - 日本語で記述する
