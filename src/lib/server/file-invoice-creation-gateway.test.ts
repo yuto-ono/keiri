@@ -1,11 +1,24 @@
-import { cp, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { PDFDocument } from "pdf-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createInvoiceDraft } from "../application/create-invoice-draft";
 import { duplicateInvoiceDraft } from "../application/duplicate-invoice-draft";
+import {
+  issueInvoice,
+  type InvoicePdfRenderer,
+} from "../application/issue-invoice";
 import { updateInvoiceDraft } from "../application/update-invoice-draft";
 import type { BusinessPartner, Issuer } from "../domain/model";
 import { invoiceSchema } from "../persistence/schemas";
@@ -15,6 +28,7 @@ import {
   serializeIssuer,
 } from "../persistence/yaml-serializer";
 import { FileInvoiceCreationGateway } from "./file-invoice-creation-gateway";
+import { FileInvoiceIssueGateway } from "./file-invoice-issue-gateway";
 import { FileInvoiceUpdateGateway } from "./file-invoice-update-gateway";
 
 const issuer: Issuer = {
@@ -159,4 +173,145 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
       parseYaml(duplicatedYaml, duplicated.filePath, invoiceSchema),
     ).toEqual(duplicated.invoice);
   });
+
+  it("正式PDFと発行済みYAMLを保存する", async () => {
+    const draft = await createPopulatedDraft();
+    const pdfContents = await createPdf(1);
+    const renderer: InvoicePdfRenderer = {
+      async renderSinglePagePdf() {
+        return pdfContents;
+      },
+    };
+
+    const result = await issueInvoice(
+      new FileInvoiceIssueGateway(dataRoot),
+      renderer,
+      {
+        invoiceNumber: draft.invoice.invoiceNumber,
+        expectedRevision: draft.invoice.revision,
+        today: "2026-10-25",
+      },
+    );
+
+    expect(result.invoice).toMatchObject({
+      status: "issued",
+      revision: 3,
+      pdf: { issuedFileName: "ACME-202610-01.pdf" },
+    });
+    expect(result.invoiceFilePath).toBe(
+      "sales/invoices/2026/ACME-202610-01.yaml",
+    );
+    expect(result.pdfFilePath).toBe(
+      "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+    );
+
+    const invoiceSource = await readFile(
+      join(dataRoot, result.invoiceFilePath),
+      "utf8",
+    );
+    expect(
+      parseYaml(invoiceSource, result.invoiceFilePath, invoiceSchema),
+    ).toEqual(result.invoice);
+    const savedPdf = await PDFDocument.load(
+      await readFile(join(dataRoot, result.pdfFilePath)),
+    );
+    expect(savedPdf.getPageCount()).toBe(1);
+  });
+
+  it("PDF保存先が既にある場合は下書きを維持する", async () => {
+    const draft = await createPopulatedDraft();
+    const pdfFilePath = join(
+      dataRoot,
+      "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+    );
+    await mkdir(join(pdfFilePath, ".."), { recursive: true });
+    await writeFile(pdfFilePath, "利用者が管理する既存PDF");
+    const renderer: InvoicePdfRenderer = {
+      async renderSinglePagePdf() {
+        return createPdf(1);
+      },
+    };
+
+    await expect(
+      issueInvoice(new FileInvoiceIssueGateway(dataRoot), renderer, {
+        invoiceNumber: draft.invoice.invoiceNumber,
+        expectedRevision: draft.invoice.revision,
+        today: "2026-10-25",
+      }),
+    ).rejects.toThrow("既に存在します");
+
+    const invoiceSource = await readFile(
+      join(dataRoot, draft.filePath),
+      "utf8",
+    );
+    expect(parseYaml(invoiceSource, draft.filePath, invoiceSchema)).toEqual(
+      draft.invoice,
+    );
+    expect(await readFile(pdfFilePath, "utf8")).toBe("利用者が管理する既存PDF");
+  });
+
+  it("2ページのPDFは保存せず下書きを維持する", async () => {
+    const draft = await createPopulatedDraft();
+    const renderer: InvoicePdfRenderer = {
+      async renderSinglePagePdf() {
+        return createPdf(2);
+      },
+    };
+
+    await expect(
+      issueInvoice(new FileInvoiceIssueGateway(dataRoot), renderer, {
+        invoiceNumber: draft.invoice.invoiceNumber,
+        expectedRevision: draft.invoice.revision,
+        today: "2026-10-25",
+      }),
+    ).rejects.toThrow("2ページあります");
+
+    const invoiceSource = await readFile(
+      join(dataRoot, draft.filePath),
+      "utf8",
+    );
+    expect(parseYaml(invoiceSource, draft.filePath, invoiceSchema)).toEqual(
+      draft.invoice,
+    );
+    await expect(
+      readFile(
+        join(dataRoot, "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf"),
+      ),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  });
 });
+
+async function createPopulatedDraft() {
+  const created = await createInvoiceDraft(
+    new FileInvoiceCreationGateway(dataRoot),
+    {
+      businessPartnerCode: "ACME",
+      paymentDueDate: "2026-11-30",
+      today: "2026-10-25",
+    },
+  );
+  return updateInvoiceDraft(
+    new FileInvoiceUpdateGateway(dataRoot),
+    created.invoice.invoiceNumber,
+    {
+      ...created.invoice,
+      lineItems: [
+        {
+          name: "開発業務",
+          quantity: 1,
+          unit: "式",
+          unitPrice: 10_000,
+          taxCategoryId: "standard-10",
+        },
+      ],
+    },
+  );
+}
+
+async function createPdf(pageCount: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  for (let index = 0; index < pageCount; index += 1) {
+    document.addPage();
+  }
+  return document.save();
+}
