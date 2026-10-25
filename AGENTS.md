@@ -20,12 +20,6 @@ SvelteKit（SSR無効・adapter-node） / Svelte 5 / TypeScript / Vite / `yaml` 
 
 Node.jsとpnpmは、リポジトリルートの `mise.toml` で完全なバージョンへ固定する。初期バージョンは採用パッケージとの互換性を確認して選定し、その後の更新は独立した作業として行う。
 
-### 参考実装
-
-同階層の `kadou` は、SvelteKitのセットアップ、開発ツールの構成および実装パターンを検討するときの参考実装として利用できる。ただし、keiriの仕様、責務の境界およびリポジトリ内の規約を正とし、`kadou` 固有の設計を機械的にコピーしない。keiriの実行、ビルドおよびテストは、`kadou` の配置、コードまたは設定に依存させない。
-
-この案内は初期構築中だけの一時的なものとする。SvelteKitと開発ツールの設定、ディレクトリ構成と依存境界、Svelte 5の代表的な実装パターン、およびlint・check・test・format・buildの実行環境がkeiri内に揃った時点で、この「参考実装」節をAGENTS.mdから削除する。それ以降はkeiri自身のコード、設定、SPEC.mdおよびAGENTS.mdだけを正とする。
-
 ### Svelte 5 runesを使う
 
 `$state`、`$derived`、`$props` などのSvelte 5 runesを使う。Svelte 4以前のstore記法や `export let` など、旧来の書き方を新しく導入しない。インストールされているバージョンとリポジトリ内の規約を正とし、古いバージョン向けの実装例を混在させない。

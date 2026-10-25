@@ -37,6 +37,12 @@ export function formatBusinessDate(value: string): string {
   return format(parseISO(value), "yyyy年MM月dd日");
 }
 
+export function formatBusinessMonth(value: string): string {
+  const firstDay = `${value}-01`;
+  assertBusinessDate(firstDay);
+  return format(parseISO(firstDay), "yyyy年M月");
+}
+
 export function isBusinessDateAfter(left: string, right: string): boolean {
   assertBusinessDate(left);
   assertBusinessDate(right);

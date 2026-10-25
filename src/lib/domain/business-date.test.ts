@@ -4,6 +4,7 @@ import {
   currentAndPreviousMonthForDate,
   currentAndPreviousMonthInTokyo,
   formatBusinessDate,
+  formatBusinessMonth,
   isBusinessDate,
   isBusinessDateAfter,
   isSameBusinessMonth,
@@ -58,4 +59,16 @@ describe("業務日付", () => {
   it("不正な日付の整形を拒否する", () => {
     expect(() => formatBusinessDate("2026-02-29")).toThrow(RangeError);
   });
+
+  it("年月を日付と重複せず表示する", () => {
+    expect(formatBusinessMonth("2026-01")).toBe("2026年1月");
+    expect(formatBusinessMonth("2025-12")).toBe("2025年12月");
+  });
+
+  it.each(["2026-1", "2026-13", "2026-01-01"])(
+    "不正な年月 %s の整形を拒否する",
+    (month) => {
+      expect(() => formatBusinessMonth(month)).toThrow(RangeError);
+    },
+  );
 });

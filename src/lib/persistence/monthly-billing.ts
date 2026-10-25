@@ -7,9 +7,15 @@ import {
 } from "#lib/persistence/data-validation-error";
 import { parseYaml } from "#lib/persistence/yaml-parser";
 
-const frontMatterSchema = z.strictObject({
-  status: z.enum(["pending", "completed"]),
-});
+const frontMatterSchema = z.strictObject(
+  {
+    status: z.enum(
+      ["pending", "completed"],
+      "statusには pending または completed を指定してください。",
+    ),
+  },
+  "Front Matterにはstatusだけを持つオブジェクトを指定してください。",
+);
 
 export class MonthlyBillingParseError extends DataValidationError {
   readonly body: string;
