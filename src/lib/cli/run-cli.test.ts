@@ -17,6 +17,7 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
   let updateGatewayDataDirectory: string | undefined;
   let issueGatewayDataDirectory: string | undefined;
   let rendererRepositoryRoot: string | undefined;
+  let revertGatewayDataDirectory: string | undefined;
   const renderSinglePagePdf = vi.fn<InvoicePdfRenderer["renderSinglePagePdf"]>(
     async () => new Uint8Array([1, 2, 3]),
   );
@@ -26,6 +27,15 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
       return {
         invoiceFilePath: `sales/invoices/2026/${issued.invoiceNumber}.yaml`,
         pdfFilePath: `documents/2026/sales/invoices/ACME/${issued.pdf.issuedFileName}`,
+      };
+    },
+  );
+  const commitRevertedInvoice = vi.fn(
+    async (_current: Invoice, draft: Invoice) => {
+      savedInvoice = draft;
+      return {
+        invoiceFilePath: `sales/invoices/2026/${draft.invoiceNumber}.yaml`,
+        pdfFilePath: "documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
       };
     },
   );
@@ -139,6 +149,15 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
         commitIssuedInvoice,
       };
     },
+    createRevertToDraftGateway(dataDirectory) {
+      revertGatewayDataDirectory = dataDirectory;
+      return {
+        async loadInvoice() {
+          return savedInvoice;
+        },
+        commitRevertedInvoice,
+      };
+    },
     createPdfRenderer(repositoryRoot) {
       rendererRepositoryRoot = repositoryRoot;
       return { renderSinglePagePdf };
@@ -167,6 +186,8 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
     updateGatewayDataDirectory: () => updateGatewayDataDirectory,
     issueGatewayDataDirectory: () => issueGatewayDataDirectory,
     rendererRepositoryRoot: () => rendererRepositoryRoot,
+    revertGatewayDataDirectory: () => revertGatewayDataDirectory,
+    commitRevertedInvoice,
     renderSinglePagePdf,
     commitIssuedInvoice,
     lastReadInputPath: () => lastReadInputPath,
@@ -641,5 +662,132 @@ describe("請求書発行CLI", () => {
     expect(harness.stdout()).toContain("正式PDF");
     expect(harness.stderr()).toBe("");
     expect(harness.issueGatewayDataDirectory()).toBeUndefined();
+  });
+});
+
+async function createRevertToDraftHarness() {
+  const harness = await createIssueHarness();
+  const invoice = harness.savedInvoice()!;
+  invoice.status = "issued";
+  invoice.revision = 2;
+  invoice.pdf.issuedFileName = "ACME-202610-01.pdf";
+  return harness;
+}
+
+describe("請求書の下書き戻しCLI", () => {
+  it("下書きへ戻し、破棄したPDFパスと更新後リビジョンを表示する", async () => {
+    const harness = await createRevertToDraftHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "revert-to-draft",
+        "ACME-202610-01",
+        "--revision",
+        "2",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(harness.revertGatewayDataDirectory()).toBe("/work/keiri-data");
+    expect(harness.savedInvoice()).toMatchObject({
+      revision: 3,
+      status: "draft",
+      pdf: { issuedFileName: null },
+    });
+    expect(harness.stdout()).toBe(
+      [
+        "操作結果: 請求書を下書きへ戻しました。",
+        "請求書番号: ACME-202610-01",
+        "YAML保存先: sales/invoices/2026/ACME-202610-01.yaml",
+        "破棄したPDF: documents/2026/sales/invoices/ACME/ACME-202610-01.pdf",
+        "リビジョン: 3",
+        "",
+      ].join("\n"),
+    );
+    expect(harness.stderr()).toBe("");
+    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
+    expect(harness.commitRevertedInvoice).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { options: [] },
+    { options: ["--revision", "0"] },
+    { options: ["--revision", "invalid"] },
+  ])(
+    "期待リビジョンの不足・不正を処理前に拒否する: $options",
+    async ({ options }) => {
+      const harness = createHarness();
+      const exitCode = await runCli(
+        [
+          "node",
+          "keiri",
+          "invoice",
+          "revert-to-draft",
+          "ACME-202610-01",
+          ...options,
+        ],
+        harness.dependencies,
+        harness.io,
+      );
+      expect(exitCode).not.toBe(0);
+      expect(harness.stderr()).toContain("--revision");
+      expect(harness.stdout()).toBe("");
+      expect(harness.revertGatewayDataDirectory()).toBeUndefined();
+      expect(harness.commitRevertedInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it("入金完了日とリビジョン不一致を列挙し元の請求書を維持する", async () => {
+    const harness = await createRevertToDraftHarness();
+    harness.savedInvoice()!.paymentCompletedDate = "2026-10-24";
+    const before = structuredClone(harness.savedInvoice());
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "revert-to-draft",
+        "ACME-202610-01",
+        "--revision",
+        "1",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("paymentCompletedDate");
+    expect(harness.stderr()).toContain("revision");
+    expect(harness.stdout()).toBe("");
+    expect(harness.savedInvoice()).toEqual(before);
+    expect(harness.commitRevertedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("PDF破棄の失敗理由を標準エラーへ出力する", async () => {
+    const harness = await createRevertToDraftHarness();
+    harness.commitRevertedInvoice.mockRejectedValueOnce(
+      new Error("PDFを破棄できません。"),
+    );
+    const before = structuredClone(harness.savedInvoice());
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "revert-to-draft",
+        "ACME-202610-01",
+        "--revision",
+        "2",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.stderr()).toContain("PDFを破棄できません。");
+    expect(harness.stdout()).toBe("");
+    expect(harness.savedInvoice()).toEqual(before);
   });
 });

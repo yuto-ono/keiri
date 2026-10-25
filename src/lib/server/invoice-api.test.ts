@@ -9,11 +9,13 @@ import type {
   InvoiceIssueGateway,
   InvoicePdfRenderer,
 } from "#lib/application/issue-invoice";
+import type { InvoiceRevertToDraftGateway } from "#lib/application/revert-invoice-to-draft";
 import type { Invoice } from "#lib/domain/model";
 import {
   handleCreateInvoiceRequest,
   handleDuplicateInvoiceRequest,
   handleIssueInvoiceRequest,
+  handleRevertInvoiceToDraftRequest,
   handleUpdateInvoiceRequest,
 } from "./invoice-api";
 
@@ -181,6 +183,123 @@ describe("請求書作成API", () => {
       ],
     });
     expect(getSaveCount()).toBe(0);
+  });
+});
+
+function createRevertToDraftHarness() {
+  const invoice = createInvoice();
+  invoice.status = "issued";
+  invoice.revision = 2;
+  invoice.pdf.issuedFileName = "発行済み.pdf";
+  const loadInvoice = vi.fn<InvoiceRevertToDraftGateway["loadInvoice"]>(
+    async () => invoice,
+  );
+  const commitRevertedInvoice = vi.fn<
+    InvoiceRevertToDraftGateway["commitRevertedInvoice"]
+  >(async () => ({
+    invoiceFilePath: "sales/invoices/2026/ACME-202610-01.yaml",
+    pdfFilePath: "documents/2026/sales/invoices/ACME/発行済み.pdf",
+  }));
+  return {
+    invoice,
+    loadInvoice,
+    commitRevertedInvoice,
+    dependencies: { gateway: { loadInvoice, commitRevertedInvoice } },
+  };
+}
+
+const revertUrl = new URL(
+  "http://127.0.0.1:5173/api/invoices/ACME-202610-01/revert-to-draft",
+);
+
+function createRevertRequest(
+  body: string,
+  origin: string | null = revertUrl.origin,
+) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (origin !== null) {
+    headers.origin = origin;
+  }
+  return new Request(revertUrl, { method: "POST", headers, body });
+}
+
+describe("請求書の下書き戻しAPI", () => {
+  it("期待リビジョンを照合して下書きへ戻し、破棄したPDFパスを返す", async () => {
+    const harness = createRevertToDraftHarness();
+    const response = await handleRevertInvoiceToDraftRequest(
+      createRevertRequest(JSON.stringify({ revision: 2 })),
+      revertUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      invoice: { status: "draft", revision: 3, pdf: { issuedFileName: null } },
+      invoiceFilePath: "sales/invoices/2026/ACME-202610-01.yaml",
+      pdfFilePath: "documents/2026/sales/invoices/ACME/発行済み.pdf",
+    });
+    expect(harness.loadInvoice).toHaveBeenCalledWith("ACME-202610-01");
+    expect(harness.commitRevertedInvoice).toHaveBeenCalledOnce();
+  });
+
+  it.each(["https://example.com", null])(
+    "外部または未指定のOrigin %s を読み込み前に拒否する",
+    async (origin) => {
+      const harness = createRevertToDraftHarness();
+      const response = await handleRevertInvoiceToDraftRequest(
+        createRevertRequest('{"revision":2}', origin),
+        revertUrl,
+        "ACME-202610-01",
+        harness.dependencies,
+      );
+      expect(response.status).toBe(403);
+      expect(harness.loadInvoice).not.toHaveBeenCalled();
+      expect(harness.commitRevertedInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "{",
+    "{}",
+    '{"revision":"2"}',
+    '{"revision":0}',
+    '{"revision":2,"paymentCompletedDate":null}',
+    '{"revision":2,"status":"draft"}',
+  ])("本文の不正や追加項目を400で拒否する: %s", async (body) => {
+    const harness = createRevertToDraftHarness();
+    const response = await handleRevertInvoiceToDraftRequest(
+      createRevertRequest(body),
+      revertUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(400);
+    expect(harness.loadInvoice).not.toHaveBeenCalled();
+    expect(harness.commitRevertedInvoice).not.toHaveBeenCalled();
+  });
+
+  it("入金完了日とリビジョン不一致を422で返し、請求書を変更しない", async () => {
+    const harness = createRevertToDraftHarness();
+    harness.invoice.paymentCompletedDate = "2026-10-24";
+    const before = structuredClone(harness.invoice);
+    const response = await handleRevertInvoiceToDraftRequest(
+      createRevertRequest('{"revision":1}'),
+      revertUrl,
+      "ACME-202610-01",
+      harness.dependencies,
+    );
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: ["paymentCompletedDate"] }),
+        expect.objectContaining({ path: ["revision"] }),
+      ]),
+    });
+    expect(harness.invoice).toEqual(before);
+    expect(harness.commitRevertedInvoice).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { readFile, rename, stat, unlink } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { PDFDocument } from "pdf-lib";
 
@@ -12,6 +11,7 @@ import type { Invoice } from "#lib/domain/model";
 import { invoiceSchema } from "#lib/persistence/schemas";
 import { parseYaml } from "#lib/persistence/yaml-parser";
 import { serializeInvoice } from "#lib/persistence/yaml-serializer";
+import { stageFile } from "#lib/server/atomic-write";
 import { loadKeiriData } from "#lib/server/keiri-data-loader";
 
 export class FileInvoiceIssueGateway implements InvoiceIssueGateway {
@@ -114,31 +114,6 @@ function issuedPdfPath(invoice: Invoice, fileName: string): string {
     invoice.businessPartner.code,
     fileName,
   ].join("/");
-}
-
-async function stageFile(
-  targetPath: string,
-  contents: Uint8Array,
-): Promise<string> {
-  const targetDirectory = dirname(targetPath);
-  await mkdir(targetDirectory, { recursive: true });
-  const temporaryPath = join(
-    targetDirectory,
-    `.${basename(targetPath)}.${randomUUID()}.tmp`,
-  );
-  const file = await open(temporaryPath, "wx");
-  try {
-    try {
-      await file.writeFile(contents);
-      await file.sync();
-    } finally {
-      await file.close();
-    }
-    return temporaryPath;
-  } catch (error) {
-    await removeIfExists(temporaryPath);
-    throw error;
-  }
 }
 
 async function validateSinglePagePdf(contents: Uint8Array): Promise<void> {

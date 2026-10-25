@@ -7,6 +7,31 @@ export interface AtomicWriteOptions {
   validate: (contents: string) => void;
 }
 
+export async function stageFile(
+  targetPath: string,
+  contents: Uint8Array,
+): Promise<string> {
+  const targetDirectory = dirname(targetPath);
+  await mkdir(targetDirectory, { recursive: true });
+  const temporaryPath = join(
+    targetDirectory,
+    `.${basename(targetPath)}.${randomUUID()}.tmp`,
+  );
+  const file = await open(temporaryPath, "wx");
+  try {
+    try {
+      await file.writeFile(contents);
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    return temporaryPath;
+  } catch (error) {
+    await removeTemporaryFile(temporaryPath);
+    throw error;
+  }
+}
+
 export async function writeTextFileAtomically(
   targetPath: string,
   contents: string,

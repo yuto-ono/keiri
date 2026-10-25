@@ -19,6 +19,10 @@ import {
   type InvoiceIssueGateway,
   type InvoicePdfRenderer,
 } from "#lib/application/issue-invoice";
+import {
+  revertInvoiceToDraft,
+  type InvoiceRevertToDraftGateway,
+} from "#lib/application/revert-invoice-to-draft";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { DataValidationError } from "#lib/persistence/data-validation-error";
 import { invoiceSchema } from "#lib/persistence/schemas";
@@ -40,6 +44,9 @@ export interface CliDependencies {
   createGateway(dataDirectory: string): InvoiceCreationGateway;
   createUpdateGateway(dataDirectory: string): InvoiceUpdateGateway;
   createIssueGateway(dataDirectory: string): InvoiceIssueGateway;
+  createRevertToDraftGateway(
+    dataDirectory: string,
+  ): InvoiceRevertToDraftGateway;
   createPdfRenderer(repositoryRoot: string): InvoicePdfRenderer;
   readInput(path: string): Promise<string>;
 }
@@ -234,6 +241,36 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
           `請求書番号: ${result.invoice.invoiceNumber}`,
           `YAML保存先: ${result.invoiceFilePath}`,
           `PDF保存先: ${result.pdfFilePath}`,
+          `リビジョン: ${result.invoice.revision}`,
+          "",
+        ].join("\n"),
+      );
+    });
+
+  invoice
+    .command("revert-to-draft")
+    .description("発行済み請求書を下書きへ戻し、正式PDFを破棄します。")
+    .argument("<請求書番号>", "下書きへ戻す請求書番号")
+    .requiredOption(
+      "--revision <期待リビジョン>",
+      "確認済みのリビジョン",
+      parseRevision,
+    )
+    .action(async (invoiceNumber: string, options: { revision: number }) => {
+      const dataDirectory = resolveKeiriDataDirectory(
+        dependencies.repositoryRoot,
+        dependencies.environment,
+      );
+      const result = await revertInvoiceToDraft(
+        dependencies.createRevertToDraftGateway(dataDirectory),
+        { invoiceNumber, expectedRevision: options.revision },
+      );
+      io.stdout.write(
+        [
+          "操作結果: 請求書を下書きへ戻しました。",
+          `請求書番号: ${result.invoice.invoiceNumber}`,
+          `YAML保存先: ${result.invoiceFilePath}`,
+          `破棄したPDF: ${result.pdfFilePath}`,
           `リビジョン: ${result.invoice.revision}`,
           "",
         ].join("\n"),

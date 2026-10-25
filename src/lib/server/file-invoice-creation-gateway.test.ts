@@ -3,6 +3,8 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
+  rename,
   rm,
   unlink,
   writeFile,
@@ -11,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { PDFDocument } from "pdf-lib";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInvoiceDraft } from "../application/create-invoice-draft";
 import { duplicateInvoiceDraft } from "../application/duplicate-invoice-draft";
@@ -20,16 +22,32 @@ import {
   type InvoicePdfRenderer,
 } from "../application/issue-invoice";
 import { updateInvoiceDraft } from "../application/update-invoice-draft";
+import { revertInvoiceToDraft } from "#lib/application/revert-invoice-to-draft";
 import type { BusinessPartner, Issuer } from "../domain/model";
 import { invoiceSchema } from "../persistence/schemas";
 import { parseYaml } from "../persistence/yaml-parser";
 import {
   serializeBusinessPartner,
   serializeIssuer,
+  serializeInvoice,
 } from "../persistence/yaml-serializer";
 import { FileInvoiceCreationGateway } from "./file-invoice-creation-gateway";
 import { FileInvoiceIssueGateway } from "./file-invoice-issue-gateway";
 import { FileInvoiceUpdateGateway } from "./file-invoice-update-gateway";
+import { FileInvoiceRevertToDraftGateway } from "./file-invoice-revert-to-draft-gateway";
+import { loadKeiriData } from "./keiri-data-loader";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    rename: vi.fn(actual.rename),
+    unlink: vi.fn(actual.unlink),
+  };
+});
+
+const actualFileSystem =
+  await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
 
 const issuer: Issuer = {
   revision: 1,
@@ -72,6 +90,8 @@ let temporaryRoot: string;
 let dataRoot: string;
 
 beforeEach(async () => {
+  vi.mocked(rename).mockReset().mockImplementation(actualFileSystem.rename);
+  vi.mocked(unlink).mockReset().mockImplementation(actualFileSystem.unlink);
   temporaryRoot = await mkdtemp(join(tmpdir(), "keiri-create-gateway-"));
   dataRoot = join(temporaryRoot, "keiri-data");
   await cp(resolve(process.cwd(), "templates/keiri-data"), dataRoot, {
@@ -315,3 +335,193 @@ async function createPdf(pageCount: number): Promise<Uint8Array> {
   }
   return document.save();
 }
+
+async function createIssuedInvoice() {
+  const draft = await createPopulatedDraft();
+  const updated = await updateInvoiceDraft(
+    new FileInvoiceUpdateGateway(dataRoot),
+    draft.invoice.invoiceNumber,
+    {
+      ...draft.invoice,
+      transactionDate: "2025-12-31",
+      pdf: { fileNameOverride: "発行時の個別名", issuedFileName: null },
+    },
+  );
+  return issueInvoice(
+    new FileInvoiceIssueGateway(dataRoot),
+    {
+      async renderSinglePagePdf() {
+        return createPdf(1);
+      },
+    },
+    {
+      invoiceNumber: updated.invoice.invoiceNumber,
+      expectedRevision: updated.invoice.revision,
+      today: "2026-10-25",
+    },
+  );
+}
+
+describe("ファイルシステムを使う請求書の下書き戻し", () => {
+  it("取引年の記録済みPDFだけを破棄し、同じ番号で編集と再発行ができる", async () => {
+    const issued = await createIssuedInvoice();
+    const pdfDirectory = join(dataRoot, "documents/2025/sales/invoices/ACME");
+    await writeFile(
+      join(pdfDirectory, "利用者管理.pdf"),
+      "利用者が管理する書類",
+    );
+    await writeFile(
+      join(dataRoot, "business-partners/ACME.yaml"),
+      serializeBusinessPartner({
+        ...partner,
+        pdfFileNamePattern: "変更後-{sequence}",
+      }),
+    );
+
+    const result = await revertInvoiceToDraft(
+      new FileInvoiceRevertToDraftGateway(dataRoot),
+      {
+        invoiceNumber: issued.invoice.invoiceNumber,
+        expectedRevision: issued.invoice.revision,
+      },
+    );
+
+    expect(result).toMatchObject({
+      invoice: {
+        invoiceNumber: issued.invoice.invoiceNumber,
+        revision: issued.invoice.revision + 1,
+        status: "draft",
+        pdf: { fileNameOverride: "発行時の個別名", issuedFileName: null },
+      },
+      invoiceFilePath: issued.invoiceFilePath,
+      pdfFilePath: issued.pdfFilePath,
+    });
+    const source = await readFile(
+      join(dataRoot, result.invoiceFilePath),
+      "utf8",
+    );
+    expect(parseYaml(source, result.invoiceFilePath, invoiceSchema)).toEqual(
+      result.invoice,
+    );
+    expect(await readdir(pdfDirectory)).toEqual(["利用者管理.pdf"]);
+    expect(await readFile(join(pdfDirectory, "利用者管理.pdf"), "utf8")).toBe(
+      "利用者が管理する書類",
+    );
+    expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+      "ACME-202610-01.yaml",
+    ]);
+    await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
+      invoices: [{ data: result.invoice }],
+    });
+
+    const edited = await updateInvoiceDraft(
+      new FileInvoiceUpdateGateway(dataRoot),
+      result.invoice.invoiceNumber,
+      {
+        ...result.invoice,
+        notes: "再発行する内容",
+        pdf: { fileNameOverride: "再発行の名前", issuedFileName: null },
+      },
+    );
+    const reissued = await issueInvoice(
+      new FileInvoiceIssueGateway(dataRoot),
+      {
+        async renderSinglePagePdf() {
+          return createPdf(1);
+        },
+      },
+      {
+        invoiceNumber: edited.invoice.invoiceNumber,
+        expectedRevision: edited.invoice.revision,
+        today: "2026-10-25",
+      },
+    );
+    expect(reissued.invoice.invoiceNumber).toBe(issued.invoice.invoiceNumber);
+    expect(reissued.invoice.notes).toBe("再発行する内容");
+    expect(reissued.pdfFilePath).toBe(
+      "documents/2025/sales/invoices/ACME/再発行の名前.pdf",
+    );
+  });
+
+  it.each(["PDFの退避", "YAMLの反映", "PDFの破棄"])(
+    "%s に失敗した場合は元のYAMLとPDFを復元し、一時ファイルを残さない",
+    async (phase) => {
+      const issued = await createIssuedInvoice();
+      const invoicePath = join(dataRoot, issued.invoiceFilePath);
+      const pdfPath = join(dataRoot, issued.pdfFilePath);
+      const originalYaml = `# 元の書式も復元する\n${await readFile(invoicePath, "utf8")}`;
+      await writeFile(invoicePath, originalYaml);
+      const originalPdf = await readFile(pdfPath);
+      const failure = new Error(`${phase}に失敗しました。`);
+      if (phase === "PDFの退避") {
+        vi.mocked(rename).mockRejectedValueOnce(failure);
+      } else if (phase === "YAMLの反映") {
+        vi.mocked(rename)
+          .mockImplementationOnce(actualFileSystem.rename)
+          .mockRejectedValueOnce(failure);
+      } else {
+        vi.mocked(unlink).mockRejectedValueOnce(failure);
+      }
+
+      await expect(
+        revertInvoiceToDraft(new FileInvoiceRevertToDraftGateway(dataRoot), {
+          invoiceNumber: issued.invoice.invoiceNumber,
+          expectedRevision: issued.invoice.revision,
+        }),
+      ).rejects.toBe(failure);
+
+      expect(await readFile(invoicePath, "utf8")).toBe(originalYaml);
+      expect(await readFile(pdfPath)).toEqual(originalPdf);
+      expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+        "ACME-202610-01.yaml",
+      ]);
+      expect(
+        await readdir(join(dataRoot, "documents/2025/sales/invoices/ACME")),
+      ).toEqual(["発行時の個別名.pdf"]);
+      await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
+        invoices: [{ data: issued.invoice }],
+      });
+    },
+  );
+
+  it.each([
+    {
+      reason: "リビジョン不一致",
+      revisionOffset: -1,
+      paymentCompletedDate: null,
+    },
+    {
+      reason: "入金完了日あり",
+      revisionOffset: 0,
+      paymentCompletedDate: "2026-10-24",
+    },
+  ])(
+    "$reason ではPDFとYAMLを変更しない",
+    async ({ revisionOffset, paymentCompletedDate }) => {
+      const issued = await createIssuedInvoice();
+      if (paymentCompletedDate !== null) {
+        await writeFile(
+          join(dataRoot, issued.invoiceFilePath),
+          serializeInvoice({ ...issued.invoice, paymentCompletedDate }),
+        );
+      }
+      const originalYaml = await readFile(
+        join(dataRoot, issued.invoiceFilePath),
+        "utf8",
+      );
+      const originalPdf = await readFile(join(dataRoot, issued.pdfFilePath));
+      await expect(
+        revertInvoiceToDraft(new FileInvoiceRevertToDraftGateway(dataRoot), {
+          invoiceNumber: issued.invoice.invoiceNumber,
+          expectedRevision: issued.invoice.revision + revisionOffset,
+        }),
+      ).rejects.toThrow("下書きへ戻せません");
+      expect(
+        await readFile(join(dataRoot, issued.invoiceFilePath), "utf8"),
+      ).toBe(originalYaml);
+      expect(await readFile(join(dataRoot, issued.pdfFilePath))).toEqual(
+        originalPdf,
+      );
+    },
+  );
+});

@@ -19,19 +19,22 @@ afterEach(async () => {
 });
 
 describe("CLIの起動", () => {
-  it("Node.js標準の環境ファイル読み込みで発行コマンドのヘルプを表示する", () => {
-    const result = spawnSync(
-      process.execPath,
-      ["--env-file=.env", entrypoint, "invoice", "issue", "--help"],
-      { cwd: workingDirectory, encoding: "utf8", timeout: 10_000 },
-    );
+  it.each(["issue", "revert-to-draft"])(
+    "Node.js標準の環境ファイル読み込みで %s のヘルプを表示する",
+    (command) => {
+      const result = spawnSync(
+        process.execPath,
+        ["--env-file=.env", entrypoint, "invoice", command, "--help"],
+        { cwd: workingDirectory, encoding: "utf8", timeout: 10_000 },
+      );
 
-    expect(result.error).toBeUndefined();
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("--revision <期待リビジョン>");
-    expect(result.stdout).toContain("正式PDF");
-    expect(result.stderr).toBe("");
-  });
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("--revision <期待リビジョン>");
+      expect(result.stdout).toContain("正式PDF");
+      expect(result.stderr).toBe("");
+    },
+  );
 
   it("不正な期待リビジョンを標準エラーと非ゼロ終了コードで拒否する", () => {
     const result = spawnSync(

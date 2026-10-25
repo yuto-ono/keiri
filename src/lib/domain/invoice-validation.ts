@@ -74,3 +74,28 @@ export function validateInvoiceForIssue(
 
   return issues;
 }
+
+export function validateInvoiceForRevertToDraft(
+  invoice: Invoice,
+): DomainValidationIssue[] {
+  const issues: DomainValidationIssue[] = [];
+  if (invoice.status !== "issued") {
+    issues.push({
+      path: ["status"],
+      message: "下書きへ戻せるのは発行済みの請求書だけです。",
+    });
+  }
+  if (invoice.paymentCompletedDate !== null) {
+    issues.push({
+      path: ["paymentCompletedDate"],
+      message: "下書きへ戻す前に、入金完了日を削除してください。",
+    });
+  }
+  if (invoice.status === "issued" && invoice.pdf.issuedFileName === null) {
+    issues.push({
+      path: ["pdf", "issuedFileName"],
+      message: "発行済み請求書の正式PDFファイル名がありません。",
+    });
+  }
+  return issues;
+}

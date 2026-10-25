@@ -16,6 +16,10 @@ import {
   type InvoiceIssueGateway,
   type InvoicePdfRenderer,
 } from "#lib/application/issue-invoice";
+import {
+  revertInvoiceToDraft,
+  type InvoiceRevertToDraftGateway,
+} from "#lib/application/revert-invoice-to-draft";
 import { invoiceSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "./data-directory";
 import { KeiriDataLoadError } from "./keiri-data-loader";
@@ -32,7 +36,7 @@ const duplicateInvoiceRequestSchema = z.strictObject({
   businessPartnerCode: z.string().min(1).optional(),
 });
 
-const issueInvoiceRequestSchema = z.strictObject({
+const invoiceRevisionRequestSchema = z.strictObject({
   revision: z
     .int("1以上の安全な整数が必要です。")
     .positive("1以上の安全な整数が必要です。"),
@@ -56,6 +60,10 @@ export interface IssueInvoiceApiDependencies {
   gateway: InvoiceIssueGateway;
   renderer: InvoicePdfRenderer;
   today: string;
+}
+
+export interface RevertInvoiceToDraftApiDependencies {
+  gateway: InvoiceRevertToDraftGateway;
 }
 
 export async function handleCreateInvoiceRequest(
@@ -271,7 +279,7 @@ export async function handleIssueInvoiceRequest(
     );
   }
 
-  const parsed = issueInvoiceRequestSchema.safeParse(body);
+  const parsed = invoiceRevisionRequestSchema.safeParse(body);
   if (!parsed.success) {
     return json(
       {
@@ -295,6 +303,69 @@ export async function handleIssueInvoiceRequest(
         today: dependencies.today,
       },
     );
+    return json(result);
+  } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 422 },
+      );
+    }
+    if (error instanceof KeiriDataLoadError) {
+      return json(
+        { message: error.message, issues: error.issues },
+        { status: 500 },
+      );
+    }
+    if (error instanceof DataDirectoryConfigurationError) {
+      return json({ message: error.message }, { status: 500 });
+    }
+    throw error;
+  }
+}
+
+export async function handleRevertInvoiceToDraftRequest(
+  request: Request,
+  requestUrl: URL,
+  invoiceNumber: string,
+  dependencies: RevertInvoiceToDraftApiDependencies,
+): Promise<Response> {
+  if (request.headers.get("origin") !== requestUrl.origin) {
+    return json(
+      { message: "同一オリジン以外からの書き込みは受け付けません。" },
+      { status: 403 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json(
+      { message: "リクエスト本文をJSONとして解析できません。" },
+      { status: 400 },
+    );
+  }
+
+  const parsed = invoiceRevisionRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(
+      {
+        message: "請求書の下書き戻し条件が不正です。",
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path,
+          message: issue.message,
+        })),
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const result = await revertInvoiceToDraft(dependencies.gateway, {
+      invoiceNumber,
+      expectedRevision: parsed.data.revision,
+    });
     return json(result);
   } catch (error) {
     if (error instanceof DomainValidationError) {

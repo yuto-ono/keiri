@@ -5,6 +5,7 @@ import { todayInTokyo } from "#lib/domain/business-date";
 import { FileInvoiceCreationGateway } from "#lib/server/file-invoice-creation-gateway";
 import { FileInvoiceUpdateGateway } from "#lib/server/file-invoice-update-gateway";
 import { FileInvoiceIssueGateway } from "#lib/server/file-invoice-issue-gateway";
+import { FileInvoiceRevertToDraftGateway } from "#lib/server/file-invoice-revert-to-draft-gateway";
 import { PlaywrightInvoicePdfRenderer } from "#lib/server/playwright-invoice-pdf-renderer";
 
 const exitCode = await runCli(
@@ -19,6 +20,8 @@ const exitCode = await runCli(
       new FileInvoiceUpdateGateway(dataDirectory),
     createIssueGateway: (dataDirectory) =>
       new FileInvoiceIssueGateway(dataDirectory),
+    createRevertToDraftGateway: (dataDirectory) =>
+      new FileInvoiceRevertToDraftGateway(dataDirectory),
     createPdfRenderer: (repositoryRoot) =>
       new PlaywrightInvoicePdfRenderer(repositoryRoot),
     readInput: async (path) =>
