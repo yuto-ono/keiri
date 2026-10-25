@@ -24,6 +24,10 @@ import {
 import { updateInvoiceDraft } from "../application/update-invoice-draft";
 import { revertInvoiceToDraft } from "#lib/application/revert-invoice-to-draft";
 import { deleteInvoiceDraft } from "#lib/application/delete-invoice-draft";
+import {
+  deleteInvoicePaymentCompletedDate,
+  setInvoicePaymentCompletedDate,
+} from "#lib/application/manage-invoice-payment";
 import type { BusinessPartner, Issuer } from "../domain/model";
 import { invoiceSchema } from "../persistence/schemas";
 import { parseYaml } from "../persistence/yaml-parser";
@@ -37,6 +41,7 @@ import { FileInvoiceIssueGateway } from "./file-invoice-issue-gateway";
 import { FileInvoiceUpdateGateway } from "./file-invoice-update-gateway";
 import { FileInvoiceRevertToDraftGateway } from "./file-invoice-revert-to-draft-gateway";
 import { FileInvoiceDeletionGateway } from "./file-invoice-deletion-gateway";
+import { FileInvoicePaymentGateway } from "./file-invoice-payment-gateway";
 import { loadKeiriData } from "./keiri-data-loader";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -453,6 +458,110 @@ async function createPdf(pageCount: number): Promise<Uint8Array> {
   }
   return document.save();
 }
+
+describe("ファイルシステムを使う入金管理", () => {
+  it("入金完了日の記録・更新・削除で請求内容と正式PDFを維持し、削除後は下書きへ戻せる", async () => {
+    const issued = await createIssuedInvoice();
+    const originalPdf = await readFile(join(dataRoot, issued.pdfFilePath));
+    const gateway = new FileInvoicePaymentGateway(dataRoot);
+    let current = issued.invoice;
+    for (const date of ["2026-10-25", "2025-01-01", null]) {
+      const target = {
+        invoiceNumber: current.invoiceNumber,
+        expectedRevision: current.revision,
+      };
+      const result =
+        date === null
+          ? await deleteInvoicePaymentCompletedDate(gateway, target)
+          : await setInvoicePaymentCompletedDate(gateway, {
+              ...target,
+              paymentCompletedDate: date,
+              today: "2026-10-25",
+            });
+
+      expect(result.invoice).toEqual({
+        ...current,
+        revision: current.revision + 1,
+        paymentCompletedDate: date,
+      });
+      expect(result.filePath).toBe(issued.invoiceFilePath);
+      const source = await readFile(join(dataRoot, result.filePath), "utf8");
+      expect(parseYaml(source, result.filePath, invoiceSchema)).toEqual(
+        result.invoice,
+      );
+      expect(await readFile(join(dataRoot, issued.pdfFilePath))).toEqual(
+        originalPdf,
+      );
+      await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
+        invoices: [{ data: result.invoice }],
+      });
+      if (date !== null) {
+        await expect(
+          revertInvoiceToDraft(new FileInvoiceRevertToDraftGateway(dataRoot), {
+            invoiceNumber: result.invoice.invoiceNumber,
+            expectedRevision: result.invoice.revision,
+          }),
+        ).rejects.toMatchObject({
+          issues: [expect.objectContaining({ path: ["paymentCompletedDate"] })],
+        });
+      }
+      current = result.invoice;
+    }
+
+    const reverted = await revertInvoiceToDraft(
+      new FileInvoiceRevertToDraftGateway(dataRoot),
+      {
+        invoiceNumber: current.invoiceNumber,
+        expectedRevision: current.revision,
+      },
+    );
+    expect(reverted.invoice.status).toBe("draft");
+  });
+
+  it.each(["set", "delete"] as const)(
+    "%s のYAML反映に失敗した場合は元のYAMLとPDFを維持し、一時ファイルを残さない",
+    async (action) => {
+      const issued = await createIssuedInvoice();
+      const gateway = new FileInvoicePaymentGateway(dataRoot);
+      const recorded = await setInvoicePaymentCompletedDate(gateway, {
+        invoiceNumber: issued.invoice.invoiceNumber,
+        expectedRevision: issued.invoice.revision,
+        paymentCompletedDate: "2026-10-24",
+        today: "2026-10-25",
+      });
+      const originalYaml = await readFile(
+        join(dataRoot, recorded.filePath),
+        "utf8",
+      );
+      const originalPdf = await readFile(join(dataRoot, issued.pdfFilePath));
+      const failure = new Error("YAMLを反映できません。");
+      vi.mocked(rename).mockRejectedValueOnce(failure);
+      const target = {
+        invoiceNumber: recorded.invoice.invoiceNumber,
+        expectedRevision: recorded.invoice.revision,
+      };
+      await expect(
+        action === "set"
+          ? setInvoicePaymentCompletedDate(gateway, {
+              ...target,
+              paymentCompletedDate: "2026-10-25",
+              today: "2026-10-25",
+            })
+          : deleteInvoicePaymentCompletedDate(gateway, target),
+      ).rejects.toBe(failure);
+
+      expect(await readFile(join(dataRoot, recorded.filePath), "utf8")).toBe(
+        originalYaml,
+      );
+      expect(await readFile(join(dataRoot, issued.pdfFilePath))).toEqual(
+        originalPdf,
+      );
+      expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+        "ACME-202610-01.yaml",
+      ]);
+    },
+  );
+});
 
 async function createIssuedInvoice() {
   const draft = await createPopulatedDraft();
