@@ -55,6 +55,8 @@ ui/            Svelteによる画面
 
 請求書の通常編集と、発行、下書き戻し、削除および複製は、JSON APIでも別の操作として表現する。通常編集用の入口で状態を直接変更せず、操作ごとに対応するapplication層のユースケースを呼ぶ。
 
+初期版の請求書書き込みAPIは、作成を `POST /api/invoices`、通常編集を `PUT /api/invoices/:invoiceNumber`、発行を `POST /api/invoices/:invoiceNumber/issue`、下書き戻しを `POST /api/invoices/:invoiceNumber/revert-to-draft`、削除を `DELETE /api/invoices/:invoiceNumber`、複製を `POST /api/invoices/:invoiceNumber/duplicate` とする。
+
 確定済みの層の責務と依存方向は、ESLintの `no-restricted-imports` で検査する。専用のアーキテクチャ検査プラグインは追加しない。少なくとも、domain層から外側の層、Svelte、SvelteKit、Node.js APIおよびYAMLへの依存と、persistence層からserver、cli、ui、Svelte、SvelteKitおよびNode.jsのファイルAPIへの依存を禁止する。未確定の境界を将来の可能性だけで規則に追加しない。
 
 YAMLから読み込んだ未知データの構造、型、必須項目および未定義キーの検証にはZodを使用する。参照整合性、税計算、状態遷移その他の業務規則をZodスキーマへ集約せず、純粋なTypeScriptとして適切な層に実装する。
@@ -79,6 +81,8 @@ YAMLの保存形式は2スペースインデント、LF改行、ファイル末�
 
 明細金額、消費税額および請求合計の十進計算には `bignumber.js` を使用し、仕様で定めた箇所だけで明示的に円単位へ丸める。`BigNumber` 型をYAML構造、UIの状態またはapplication層の公開データへ広げず、domain層の金額計算モジュール内に閉じ込める。
 
+業務上の日付は、YAML、UIの状態およびapplication層の公開データで `YYYY-MM-DD` 形式の文字列として扱い、`Date` や `TZDate` を受け渡さない。解析、妥当性検証、比較、表示用の整形、今月および先月の算出は、`date-fns` を使用する共通ユーティリティへ集約する。現在日時から業務日付を求める処理では、`@date-fns/tz` に `Asia/Tokyo` を明示する。第三者パッケージの `date-fns-tz` は使用しない。
+
 外部との境界だけを抽象化する。将来の可能性だけを理由にinterfaceや層を増やさない。
 
 YAMLとPDFは、最終的な保存先と同じファイルシステム上の一時ファイルへ書き込み、検証後にatomic renameで反映する。通常の処理失敗では一時ファイルを除去して変更前の状態を維持する。異常終了向けの操作ジャーナルおよび複数ファイルのトランザクションは設けない。
@@ -87,7 +91,13 @@ YAMLとPDFは、最終的な保存先と同じファイルシステム上の一�
 
 CLIの引数解析、サブコマンド、必須引数・オプションおよびヘルプにはCommanderを使用する。Commanderのaction handlerは解析済みの入力からapplication層を呼び出す薄い境界とし、業務ロジックを置かない。出力先を注入し、CLI処理内で直接 `process.exit()` を実行しない。
 
-`pdf-lib` は、PlaywrightとChromiumで生成したPDFのページ数を `PDFDocument.load()` と `getPageCount()` で確認するためだけに使用する。PDF生成、フォント解析および内容抽出へ用途を広げない。
+CLI、開発サーバーおよび本番サーバーは、リポジトリルートからNode.js標準の `--env-file=.env` を指定して起動する。`.env` が存在しない場合は起動を拒否し、`dotenv` その他の環境変数ファイル読み込み用パッケージや独自の読み込み処理は導入しない。OSの環境と `.env` に同じ環境変数がある場合は、Node.js標準の優先順位に従う。
+
+正式な請求書PDFは、PlaywrightでヘッドレスChromiumを制御し、HTMLと印刷用CSSから生成する。`pdf-lib` は、生成したPDFのページ数を `PDFDocument.load()` と `getPageCount()` で確認するためだけに使用し、PDF生成、フォント解析および内容抽出へ用途を広げない。
+
+画面とPDFで使用するNoto Sans JPは、バージョンを固定して `keiri` リポジトリにライセンスとともに同梱し、`keiri-data` または実行時の外部CDNに依存させない。PDF生成前にフォントの読み込み完了を確認し、失敗時はシステムフォントへ暗黙に切り替えず発行を拒否する。生成後はページ数だけを検証し、PDF内部のフォント名は検査しない。
+
+初期版はmacOS上で直接実行し、Docker環境は用意しない。adapter-nodeのサーバーはループバックインターフェースだけで待ち受ける。初期版にはログインと利用者認証を設けない。書き込みAPIは同一オリジンからのリクエストだけを受け付け、外部オリジン向けのCORS設定を設けない。
 
 コードとコード系設定の整形にはPrettierとSvelte 5対応の公式 `prettier-plugin-svelte` を使用する。文書、YAMLおよびYAML雛形は対象外とする。ESLintはコード品質、Prettierは書式を担当し、PrettierをESLintルールとして実行しない。`format` と `format:check` をpackage scriptとして設ける。pre-commit hookおよびエディタの自動保存時整形は強制しない。
 
