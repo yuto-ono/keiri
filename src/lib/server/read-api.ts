@@ -1,4 +1,8 @@
 import { json } from "@sveltejs/kit";
+import {
+  getDashboard,
+  type DashboardReadGateway,
+} from "#lib/application/read-dashboard";
 
 import {
   getBusinessPartner,
@@ -18,11 +22,25 @@ import {
   resolveKeiriDataDirectory,
 } from "#lib/server/data-directory";
 import { FileKeiriReadGateway } from "#lib/server/file-keiri-read-gateway";
+import { FileDashboardReadGateway } from "#lib/server/file-dashboard-read-gateway";
 import { KeiriDataLoadError } from "#lib/server/keiri-data-loader";
 
 export interface ReadApiDependencies {
   gateway: KeiriReadGateway;
   today?: string;
+}
+
+export function handleGetDashboardRequest(dependencies?: {
+  gateway: DashboardReadGateway;
+  today?: string;
+}): Promise<Response> {
+  return handleJsonRead(() =>
+    getDashboard(
+      dependencies?.gateway ??
+        new FileDashboardReadGateway(resolveKeiriDataDirectory(process.cwd())),
+      dependencies?.today ?? todayInTokyo(),
+    ),
+  );
 }
 
 export async function handleListInvoicesRequest(

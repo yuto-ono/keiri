@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  currentAndPreviousMonthForDate,
   currentAndPreviousMonthInTokyo,
   formatBusinessDate,
   isBusinessDate,
@@ -32,6 +33,19 @@ describe("業務日付", () => {
     expect(
       currentAndPreviousMonthInTokyo(new Date("2025-12-31T15:00:00.000Z")),
     ).toEqual(["2026-01", "2025-12"]);
+  });
+
+  it.each([
+    ["2026-01-01", ["2026-01", "2025-12"]],
+    ["2024-03-31", ["2024-03", "2024-02"]],
+  ])("業務日付 %s から今月と先月を返す", (today, months) => {
+    expect(currentAndPreviousMonthForDate(today)).toEqual(months);
+  });
+
+  it("不正な日付から年月を作らない", () => {
+    expect(() => currentAndPreviousMonthForDate("2026-02-30")).toThrow(
+      RangeError,
+    );
   });
 
   it("表示、比較、同月判定を行う", () => {

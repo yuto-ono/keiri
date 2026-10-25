@@ -6,6 +6,8 @@ export type AccountType = "ordinary" | "checking";
 
 export type InvoiceStatus = "draft" | "issued";
 
+export type MonthlyBillingStatus = "pending" | "completed";
+
 export interface BankAccount {
   id: string;
   bankName: string;

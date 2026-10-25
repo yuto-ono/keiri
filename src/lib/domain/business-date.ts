@@ -21,7 +21,14 @@ export function todayInTokyo(now: Date = new Date()): string {
 export function currentAndPreviousMonthInTokyo(
   now: Date = new Date(),
 ): readonly [currentMonth: string, previousMonth: string] {
-  const current = new TZDateMini(now, BUSINESS_TIME_ZONE);
+  return currentAndPreviousMonthForDate(todayInTokyo(now));
+}
+
+export function currentAndPreviousMonthForDate(
+  today: string,
+): readonly [currentMonth: string, previousMonth: string] {
+  assertBusinessDate(today);
+  const current = parseISO(today);
   return [format(current, "yyyy-MM"), format(subMonths(current, 1), "yyyy-MM")];
 }
 
