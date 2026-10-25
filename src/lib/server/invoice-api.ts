@@ -24,20 +24,23 @@ import {
   deleteInvoiceDraft,
   type InvoiceDeletionGateway,
 } from "#lib/application/delete-invoice-draft";
-import { invoiceSchema } from "#lib/persistence/schemas";
+import { invoiceLineItemSchema, invoiceSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "./data-directory";
 import { KeiriDataLoadError } from "./keiri-data-loader";
 
-const createInvoiceRequestSchema = z.strictObject({
+const invoiceDraftFormRequestSchema = z.strictObject({
   businessPartnerCode: z.string().min(1),
   paymentDueDate: z.string().min(1),
-  issueDate: z.string().min(1).optional(),
-});
-
-const duplicateInvoiceRequestSchema = z.strictObject({
-  paymentDueDate: z.string().min(1),
-  issueDate: z.string().min(1).optional(),
-  businessPartnerCode: z.string().min(1).optional(),
+  issueDate: z.string().min(1),
+  content: z.strictObject({
+    transactionDate: z.string().min(1),
+    honorific: z.enum(["様", "御中"]),
+    unitPricesIncludeTax: z.boolean(),
+    bankAccountIds: z.array(z.string().min(1)),
+    lineItems: z.array(invoiceLineItemSchema),
+    notes: z.string().nullable(),
+    pdfFileNameOverride: z.string().nullable(),
+  }),
 });
 
 const invoiceRevisionRequestSchema = z.strictObject({
@@ -96,7 +99,7 @@ export async function handleCreateInvoiceRequest(
     );
   }
 
-  const parsed = createInvoiceRequestSchema.safeParse(body);
+  const parsed = invoiceDraftFormRequestSchema.safeParse(body);
   if (!parsed.success) {
     return json(
       {
@@ -223,7 +226,7 @@ export async function handleDuplicateInvoiceRequest(
     );
   }
 
-  const parsed = duplicateInvoiceRequestSchema.safeParse(body);
+  const parsed = invoiceDraftFormRequestSchema.safeParse(body);
   if (!parsed.success) {
     return json(
       {

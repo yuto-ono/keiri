@@ -101,6 +101,10 @@ describe("請求書下書きの更新", () => {
     const current = createInvoice();
     const proposed: Invoice = {
       ...current,
+      businessPartner: {
+        ...current.businessPartner,
+        snapshot: { ...current.businessPartner.snapshot, honorific: "様" },
+      },
       issueDate: "2026-10-31",
       transactionDate: "2025-12-31",
       paymentDueDate: "2026-01-31",
@@ -126,6 +130,7 @@ describe("請求書下書きの更新", () => {
 
     expect(result.invoice.revision).toBe(4);
     expect(result.invoice.transactionDate).toBe("2025-12-31");
+    expect(result.invoice.businessPartner.snapshot.honorific).toBe("様");
     expect(result.invoice.lineItems).toEqual(proposed.lineItems);
     expect(result.filePath).toBe("sales/invoices/2025/ACME-202610-01.yaml");
     expect(harness.saved()).toEqual({

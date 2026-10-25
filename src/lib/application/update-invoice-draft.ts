@@ -3,16 +3,14 @@ import {
   DomainValidationError,
   type DomainValidationIssue,
 } from "#lib/domain/domain-validation-error";
-import { calculateInvoiceAmounts } from "#lib/domain/invoice-calculation";
+import { validateInvoiceDraftContent } from "#lib/domain/invoice-draft-content";
 import type {
   BankAccount,
   Invoice,
   Issuer,
   IssuerContactSnapshot,
   TaxCategory,
-  TaxableTaxCategory,
 } from "#lib/domain/model";
-import { validatePdfBaseName } from "#lib/domain/pdf-file-name";
 
 export interface InvoiceUpdateContext {
   invoice: Invoice | undefined;
@@ -112,7 +110,7 @@ function validateUpdate(
     immutableIssue(
       issues,
       ["businessPartner"],
-      "取引先と宛名のスナップショット",
+      "取引先と宛名本体のスナップショット",
     );
   }
   if (!sameIssuerIdentityAndContact(proposed, current)) {
@@ -125,38 +123,17 @@ function validateUpdate(
     immutableIssue(issues, ["rounding"], "端数処理設定");
   }
 
-  if (!isBusinessDate(proposed.issueDate)) {
-    issues.push({ path: ["issueDate"], message: "発行日が不正です。" });
-  } else if (!isSameBusinessMonth(proposed.issueDate, current.issueDate)) {
+  if (
+    isBusinessDate(proposed.issueDate) &&
+    !isSameBusinessMonth(proposed.issueDate, current.issueDate)
+  ) {
     issues.push({
       path: ["issueDate"],
       message: "発行年月は保存後に変更できません。",
     });
   }
-  if (!isBusinessDate(proposed.transactionDate)) {
-    issues.push({
-      path: ["transactionDate"],
-      message: "取引日が不正です。",
-    });
-  }
-  if (!isBusinessDate(proposed.paymentDueDate)) {
-    issues.push({
-      path: ["paymentDueDate"],
-      message: "支払期限が不正です。",
-    });
-  }
-  if (
-    proposed.pdf.fileNameOverride !== null &&
-    validatePdfBaseName(proposed.pdf.fileNameOverride).length > 0
-  ) {
-    issues.push({
-      path: ["pdf", "fileNameOverride"],
-      message: "PDFの個別ファイル名が不正です。",
-    });
-  }
-
   validateBankAccounts(current, proposed, context.issuer, issues);
-  validateLineItems(proposed, context.taxCategories, issues);
+  issues.push(...validateInvoiceDraftContent(proposed, context.taxCategories));
   return issues;
 }
 
@@ -213,68 +190,11 @@ function validateBankAccounts(
   });
 }
 
-function validateLineItems(
-  invoice: Invoice,
-  taxCategories: readonly TaxCategory[],
-  issues: DomainValidationIssue[],
-): void {
-  invoice.lineItems.forEach((lineItem, index) => {
-    if (lineItem.name.length === 0) {
-      issues.push({
-        path: ["lineItems", index, "name"],
-        message: "品目名は必須です。",
-      });
-    }
-    if (lineItem.unit.length === 0) {
-      issues.push({
-        path: ["lineItems", index, "unit"],
-        message: "単位は必須です。",
-      });
-    }
-  });
-
-  const taxCategoryId = invoice.lineItems[0]?.taxCategoryId;
-  if (taxCategoryId === undefined) {
-    return;
-  }
-  const taxCategory = taxCategories.find(
-    (candidate) => candidate.id === taxCategoryId,
-  );
-  if (
-    taxCategory === undefined ||
-    taxCategory.treatment !== "taxable" ||
-    !taxCategory.isStandardRate
-  ) {
-    issues.push({
-      path: ["lineItems", 0, "taxCategoryId"],
-      message: `税区分 ${taxCategoryId} は初期版で使用できる標準税率の課税区分ではありません。`,
-    });
-    return;
-  }
-
-  try {
-    calculateInvoiceAmounts({
-      lineItems: invoice.lineItems,
-      unitPricesIncludeTax: invoice.unitPricesIncludeTax,
-      rounding: invoice.rounding,
-      taxCategory: taxCategory as TaxableTaxCategory,
-    });
-  } catch (error) {
-    if (error instanceof DomainValidationError) {
-      issues.push(...error.issues);
-      return;
-    }
-    throw error;
-  }
-}
-
 function sameBusinessPartner(left: Invoice, right: Invoice): boolean {
   return (
     left.businessPartner.code === right.businessPartner.code &&
     left.businessPartner.snapshot.addressee ===
-      right.businessPartner.snapshot.addressee &&
-    left.businessPartner.snapshot.honorific ===
-      right.businessPartner.snapshot.honorific
+      right.businessPartner.snapshot.addressee
   );
 }
 

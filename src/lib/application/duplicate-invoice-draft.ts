@@ -2,6 +2,7 @@ import {
   buildInvoiceDraft,
   type CreateInvoiceDraftResult,
   type InvoiceCreationGateway,
+  type InvoiceDraftFormContent,
 } from "#lib/application/create-invoice-draft";
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 
@@ -11,6 +12,7 @@ export interface DuplicateInvoiceDraftInput {
   issueDate?: string;
   businessPartnerCode?: string;
   today: string;
+  content?: InvoiceDraftFormContent;
 }
 
 export async function duplicateInvoiceDraft(
@@ -38,6 +40,7 @@ export async function duplicateInvoiceDraft(
       paymentDueDate: input.paymentDueDate,
       issueDate: input.issueDate,
       today: input.today,
+      content: input.content,
     },
     {
       lineItems: source.lineItems,

@@ -118,7 +118,7 @@ export const settingsSchema: z.ZodType<Settings> = z.strictObject({
   }),
 });
 
-const invoiceLineItemSchema = z.strictObject({
+export const invoiceLineItemSchema = z.strictObject({
   name: nonEmptyString,
   quantity: z
     .number()

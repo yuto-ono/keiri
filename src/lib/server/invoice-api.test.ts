@@ -12,6 +12,7 @@ import type {
 import type { InvoiceRevertToDraftGateway } from "#lib/application/revert-invoice-to-draft";
 import type { InvoiceDeletionGateway } from "#lib/application/delete-invoice-draft";
 import type { Invoice } from "#lib/domain/model";
+import { createInvoiceDraftFormContent } from "#lib/testing/invoice-draft-form";
 import {
   handleCreateInvoiceRequest,
   handleDeleteInvoiceRequest,
@@ -105,15 +106,27 @@ function createRequest(body: BodyInit, origin = "http://127.0.0.1:5173") {
   });
 }
 
+function createFormBody(overrides: Record<string, unknown> = {}) {
+  return {
+    businessPartnerCode: "ACME",
+    paymentDueDate: "2026-11-30",
+    issueDate: "2026-10-25",
+    content: createInvoiceDraftFormContent(),
+    ...overrides,
+  };
+}
+
 describe("請求書作成API", () => {
   it("同一オリジンの入力から下書きを作成する", async () => {
     const { gateway, getSaveCount } = createGateway();
     const response = await handleCreateInvoiceRequest(
       createRequest(
-        JSON.stringify({
-          businessPartnerCode: "ACME",
-          paymentDueDate: "2026-11-30",
-        }),
+        JSON.stringify(
+          createFormBody({
+            businessPartnerCode: "ACME",
+            paymentDueDate: "2026-11-30",
+          }),
+        ),
       ),
       new URL("http://127.0.0.1:5173/api/invoices"),
       { gateway, today: "2026-10-25" },
@@ -150,11 +163,13 @@ describe("請求書作成API", () => {
     const second = createGateway();
     const unknownKeyResponse = await handleCreateInvoiceRequest(
       createRequest(
-        JSON.stringify({
-          businessPartnerCode: "ACME",
-          paymentDueDate: "2026-11-30",
-          unknown: true,
-        }),
+        JSON.stringify(
+          createFormBody({
+            businessPartnerCode: "ACME",
+            paymentDueDate: "2026-11-30",
+            unknown: true,
+          }),
+        ),
       ),
       new URL("http://127.0.0.1:5173/api/invoices"),
       { gateway: second.gateway, today: "2026-10-25" },
@@ -167,10 +182,12 @@ describe("請求書作成API", () => {
     const { gateway, getSaveCount } = createGateway();
     const response = await handleCreateInvoiceRequest(
       createRequest(
-        JSON.stringify({
-          businessPartnerCode: "MISSING",
-          paymentDueDate: "2026-11-30",
-        }),
+        JSON.stringify(
+          createFormBody({
+            businessPartnerCode: "MISSING",
+            paymentDueDate: "2026-11-30",
+          }),
+        ),
       ),
       new URL("http://127.0.0.1:5173/api/invoices"),
       { gateway, today: "2026-10-25" },
@@ -637,7 +654,19 @@ describe("請求書複製API", () => {
     context.invoices = [source];
     const harness = createGateway(context);
     const response = await handleDuplicateInvoiceRequest(
-      createRequest(JSON.stringify({ paymentDueDate: "2026-12-31" })),
+      createRequest(
+        JSON.stringify(
+          createFormBody({
+            paymentDueDate: "2026-12-31",
+            issueDate: "2026-10-26",
+            content: createInvoiceDraftFormContent({
+              transactionDate: "2026-10-26",
+              lineItems: source.lineItems,
+              notes: source.notes,
+            }),
+          }),
+        ),
+      ),
       new URL("http://127.0.0.1:5173/api/invoices/ACME-202610-01/duplicate"),
       source.invoiceNumber,
       { gateway: harness.gateway, today: "2026-10-26" },
@@ -660,7 +689,9 @@ describe("請求書複製API", () => {
   it("存在しない複製元を422で拒否する", async () => {
     const harness = createGateway();
     const response = await handleDuplicateInvoiceRequest(
-      createRequest(JSON.stringify({ paymentDueDate: "2026-12-31" })),
+      createRequest(
+        JSON.stringify(createFormBody({ paymentDueDate: "2026-12-31" })),
+      ),
       new URL("http://127.0.0.1:5173/api/invoices/MISSING-202610-01/duplicate"),
       "MISSING-202610-01",
       { gateway: harness.gateway, today: "2026-10-26" },

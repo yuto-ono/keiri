@@ -3,8 +3,10 @@ import {
   DomainValidationError,
   type DomainValidationIssue,
 } from "#lib/domain/domain-validation-error";
+import { validateInvoiceDraftContent } from "#lib/domain/invoice-draft-content";
 import type {
   BusinessPartner,
+  Honorific,
   Invoice,
   Issuer,
   Settings,
@@ -30,6 +32,15 @@ export interface CreateInvoiceDraftInput {
   paymentDueDate: string;
   issueDate?: string;
   today: string;
+  content?: InvoiceDraftFormContent;
+}
+
+export interface InvoiceDraftFormContent extends InvoiceDraftInitialContent {
+  transactionDate: string;
+  honorific: Honorific;
+  unitPricesIncludeTax: boolean;
+  bankAccountIds: string[];
+  pdfFileNameOverride: string | null;
 }
 
 export interface CreateInvoiceDraftResult {
@@ -88,10 +99,31 @@ export function buildInvoiceDraft(
     ]);
   }
 
-  selectCurrentStandardTaxCategory(context.taxCategories);
+  const standardTaxCategory = selectCurrentStandardTaxCategory(
+    context.taxCategories,
+  );
 
   const issuer = context.issuers[0];
   const snapshotIssues = validateSnapshotSource(businessPartner, issuer);
+  const bankAccountIds =
+    input.content?.bankAccountIds ??
+    businessPartner.issuerDisplay.bankAccountIds;
+  const seenBankAccountIds = new Set<string>();
+  bankAccountIds.forEach((id, index) => {
+    if (seenBankAccountIds.has(id)) {
+      snapshotIssues.push({
+        path: ["content", "bankAccountIds", index],
+        message: `振込先 ${id} が重複しています。`,
+      });
+    }
+    seenBankAccountIds.add(id);
+    if (!issuer.bankAccounts.some((account) => account.id === id)) {
+      snapshotIssues.push({
+        path: ["content", "bankAccountIds", index],
+        message: `振込先 ${id} は現在の発行者に登録されていません。`,
+      });
+    }
+  });
   if (snapshotIssues.length > 0) {
     throw new DomainValidationError(
       "取引先と発行者の情報から請求書を作成できません。",
@@ -104,7 +136,7 @@ export function buildInvoiceDraft(
     issueDate,
     context.invoices,
   );
-  return {
+  const invoice: Invoice = {
     revision: 1,
     status: "draft",
     invoiceNumber,
@@ -112,7 +144,7 @@ export function buildInvoiceDraft(
       code: businessPartner.code,
       snapshot: {
         addressee: businessPartner.addressee,
-        honorific: businessPartner.honorific,
+        honorific: input.content?.honorific ?? businessPartner.honorific,
       },
     },
     issuer: {
@@ -126,25 +158,52 @@ export function buildInvoiceDraft(
         email: businessPartner.issuerDisplay.email
           ? { visible: true, value: issuer.email as string }
           : { visible: false },
-        bankAccounts: businessPartner.issuerDisplay.bankAccountIds.map(
-          (bankAccountId) => ({
-            ...(issuer.bankAccounts.find(
-              (bankAccount) => bankAccount.id === bankAccountId,
-            ) as Issuer["bankAccounts"][number]),
-          }),
-        ),
+        bankAccounts: bankAccountIds.map((bankAccountId) => ({
+          ...(issuer.bankAccounts.find(
+            (bankAccount) => bankAccount.id === bankAccountId,
+          ) as Issuer["bankAccounts"][number]),
+        })),
       },
     },
     issueDate,
-    transactionDate: issueDate,
+    transactionDate: input.content?.transactionDate ?? issueDate,
     paymentDueDate: input.paymentDueDate,
     paymentCompletedDate: null,
-    unitPricesIncludeTax: businessPartner.unitPricesIncludeTax,
-    lineItems: initialContent.lineItems.map((lineItem) => ({ ...lineItem })),
-    notes: initialContent.notes,
+    unitPricesIncludeTax:
+      input.content?.unitPricesIncludeTax ??
+      businessPartner.unitPricesIncludeTax,
+    lineItems: (input.content?.lineItems ?? initialContent.lineItems).map(
+      (lineItem) => ({ ...lineItem }),
+    ),
+    notes:
+      input.content === undefined ? initialContent.notes : input.content.notes,
     rounding: { ...context.settings.rounding },
-    pdf: { fileNameOverride: null, issuedFileName: null },
+    pdf: {
+      fileNameOverride: input.content?.pdfFileNameOverride ?? null,
+      issuedFileName: null,
+    },
   };
+  const contentIssues = validateInvoiceDraftContent(
+    invoice,
+    context.taxCategories,
+  );
+  const expectedTaxCategoryId =
+    initialContent.lineItems[0]?.taxCategoryId ?? standardTaxCategory.id;
+  invoice.lineItems.forEach((lineItem, index) => {
+    if (lineItem.taxCategoryId !== expectedTaxCategoryId) {
+      contentIssues.push({
+        path: ["lineItems", index, "taxCategoryId"],
+        message: `この請求書の明細には税区分 ${expectedTaxCategoryId} を指定してください。`,
+      });
+    }
+  });
+  if (contentIssues.length > 0) {
+    throw new DomainValidationError(
+      "請求書の作成内容が不正です。",
+      contentIssues,
+    );
+  }
+  return invoice;
 }
 
 function validateInputDates(
