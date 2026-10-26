@@ -12,7 +12,7 @@
 
 ## 技術スタック
 
-SvelteKit（SSR無効・adapter-node） / Svelte 5 / TypeScript / Vite / `yaml` / Zod / `bignumber.js` / `date-fns` / `@date-fns/tz` / `pdf-lib` / Commander / Vitest / Playwright / ESLint / `svelte-check` / Prettier / `prettier-plugin-svelte`
+SvelteKit（SSR無効・adapter-node） / Svelte 5 / TypeScript / Vite / `yaml` / Zod / `bignumber.js` / `date-fns` / `@date-fns/tz` / `pdf-lib` / Commander / Vitest / Playwright / ESLint / `svelte-check`
 
 パッケージ管理にはpnpmを使用する。
 
@@ -93,11 +93,7 @@ CLI、開発サーバーおよび本番サーバーは、リポジトリルー�
 
 初期版はmacOS上で直接実行し、Docker環境は用意しない。adapter-nodeのサーバーはループバックインターフェースだけで待ち受ける。初期版にはログインと利用者認証を設けない。書き込みAPIは同一オリジンからのリクエストだけを受け付け、外部オリジン向けのCORS設定を設けない。
 
-コードとコード系設定の整形にはPrettierとSvelte 5対応の公式 `prettier-plugin-svelte` を使用する。文書、YAMLおよびYAML雛形は対象外とする。ESLintはコード品質、Prettierは書式を担当し、PrettierをESLintルールとして実行しない。`format` と `format:check` をpackage scriptとして設ける。pre-commit hookおよびエディタの自動保存時整形は強制しない。
-
-Prettierと `prettier-plugin-svelte` の書式オプションは上書きせず、固定したバージョンの既定値を使用する。依存更新時は既定値の変更と整形差分を確認する。
-
-Svelteの空白の意味を保つ場合など、必要な箇所に限って、理由を直前のコメントへ記録したうえで最小のノードへ `prettier-ignore` を使用できる。単なる好みを理由に広い範囲を無視せず、`htmlWhitespaceSensitivity` を全体で `ignore` にしない。
+コードとコード系設定は既存の書式を尊重し、意味のまとまりに応じた改行と読みやすさを優先する。Svelteではインライン要素の空白の意味を保つ。コード品質はESLintと型検査で確認し、書式統一のための自動整形は行わない。
 
 ## 初期実装後の作業
 

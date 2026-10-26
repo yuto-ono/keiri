@@ -23,9 +23,7 @@
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "format": "prettier --write \"src/**/*.{css,svelte,ts}\" \"*.{js,json,ts}\"",
-    "format:check": "prettier --check \"src/**/*.{css,svelte,ts}\" \"*.{js,json,ts}\""
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@date-fns/tz": "1.5.0",
@@ -46,8 +44,6 @@
     "eslint": "10.13.0",
     "eslint-plugin-svelte": "3.23.1",
     "globals": "17.13.0",
-    "prettier": "3.9.10",
-    "prettier-plugin-svelte": "4.1.1",
     "svelte": "5.57.2",
     "svelte-check": "4.7.7",
     "typescript": "6.0.3",

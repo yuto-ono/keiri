@@ -23,7 +23,6 @@ pnpm dev
 コードの検証には次のコマンドを使用する。
 
 ```sh
-pnpm format:check
 pnpm lint
 pnpm check
 pnpm test
