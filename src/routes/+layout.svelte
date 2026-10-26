@@ -36,7 +36,13 @@
             ? "page"
             : undefined}>請求書</a
         >
-        <span role="link" aria-disabled="true">取引先</span>
+        <a
+          href={resolve("/business-partners")}
+          aria-current={page.url.pathname === resolve("/business-partners") ||
+          page.url.pathname.startsWith(`${resolve("/business-partners")}/`)
+            ? "page"
+            : undefined}>取引先</a
+        >
         <span role="link" aria-disabled="true">設定</span>
       </nav>
     </aside>
