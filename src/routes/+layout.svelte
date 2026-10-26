@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { resolve } from "$app/paths";
+  import { asset, resolve } from "$app/paths";
   import type { LayoutProps } from "./$types";
   import ReadError from "../lib/ui/ReadError.svelte";
   import "#lib/styles/app.css";
@@ -11,6 +11,7 @@
 <svelte:head>
   <title>{data.startupError ? "データ検証エラー | keiri" : "keiri"}</title>
   <meta name="description" content="自分用の経理環境" />
+  <link rel="icon" href={asset("favicon.svg")} />
 </svelte:head>
 
 {#if data.startupError}
