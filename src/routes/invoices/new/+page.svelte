@@ -5,8 +5,8 @@
   let { data }: PageProps = $props();
 </script>
 
-{#if data.creation?.ok}<InvoiceCreation
-    context={data.creation.value}
-  />{:else if data.creation && !data.creation.ok}<ReadError
-    error={data.creation.error}
-  />{/if}
+{#if data.creation?.ok}
+  <InvoiceCreation context={data.creation.value} />
+{:else if data.creation && !data.creation.ok}
+  <ReadError error={data.creation.error} />
+{/if}

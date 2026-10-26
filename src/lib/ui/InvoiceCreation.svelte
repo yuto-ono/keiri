@@ -54,16 +54,16 @@
   }
 </script>
 
-<svelte:head
-  ><title>{source === null ? "請求書の新規作成" : "請求書の複製"} | keiri</title
-  ></svelte:head
->
+<svelte:head>
+  <title>{source === null ? "請求書の新規作成" : "請求書の複製"} | keiri</title>
+</svelte:head>
 <header class="page-header">
   <div>
     <h1>{source === null ? "請求書の新規作成" : "請求書の複製"}</h1>
     <p class="muted">{savedInvoiceNumber === null ? "未保存" : "保存済み"}</p>
   </div>
-  {#if savedInvoiceNumber === null}<a
+  {#if savedInvoiceNumber === null}
+    <a
       class="button-link"
       href={source === null
         ? resolve("/invoices")
@@ -73,28 +73,40 @@
       aria-disabled={busy}
       onclick={(event) => {
         if (busy) event.preventDefault();
-      }}>キャンセル</a
-    >{/if}
+      }}
+    >
+      キャンセル
+    </a>
+  {/if}
 </header>
-{#if source}<p>
+{#if source}
+  <p>
     複製元：<a
       href={resolve("/invoices/[invoiceNumber]", {
         invoiceNumber: source.invoiceNumber,
-      })}>{source.invoiceNumber}</a
-    >
-  </p>{/if}
-{#if operationError}<InlineError error={operationError} focus={true} />{/if}
+      })}
+    >{source.invoiceNumber}</a>
+  </p>
+{/if}
+{#if operationError}
+  <InlineError error={operationError} focus={true} />
+{/if}
 {#if savedInvoiceNumber}
   <section class="panel content-panel" role="status">
     <h2>保存しました</h2>
     <p>請求書番号：{savedInvoiceNumber}</p>
-    {#if navigationFailed}<p>
+    {#if navigationFailed}
+      <p>
         詳細画面へ移動できませんでした。保存した請求書を開いてください。
-      </p>{/if}<a
+      </p>
+    {/if}
+    <a
       href={resolve("/invoices/[invoiceNumber]", {
         invoiceNumber: savedInvoiceNumber,
-      })}>保存した請求書を開く</a
+      })}
     >
+      保存した請求書を開く
+    </a>
   </section>
 {/if}
 <form
@@ -109,8 +121,9 @@
       aria-labelledby="partner-selection-heading"
     >
       <h2 id="partner-selection-heading">取引先</h2>
-      <label
-        >取引先<select
+      <label>
+        取引先
+        <select
           required
           value={form.businessPartnerCode}
           onchange={(event) =>
@@ -119,16 +132,20 @@
               event.currentTarget.value,
               initial,
             ))}
-          ><option value="">選択してください</option
-          >{#each initial.businessPartners as partner (partner.code)}<option
-              value={partner.code}
-              >{partner.code} / {partner.addressee}{partner.honorific}</option
-            >{/each}</select
-        ></label
-      >
-      {#if initial.businessPartners.length === 0}<p class="muted">
+        >
+          <option value="">選択してください</option>
+          {#each initial.businessPartners as partner (partner.code)}
+            <option value={partner.code}>
+              {partner.code} / {partner.addressee}{partner.honorific}
+            </option>
+          {/each}
+        </select>
+      </label>
+      {#if initial.businessPartners.length === 0}
+        <p class="muted">
           取引先が登録されていません。請求書を保存するには取引先の登録が必要です。
-        </p>{/if}
+        </p>
+      {/if}
     </section>
     <InvoiceDraftFields
       bind:form
@@ -161,15 +178,12 @@
         </div>
       </dl>
       <p class="muted">
-        明細金額：{formatRoundingMethod(initial.rounding.lineAmount)} / 消費税額：{formatRoundingMethod(
-          initial.rounding.taxAmount,
-        )}
+        明細金額：{formatRoundingMethod(initial.rounding.lineAmount)} /
+        消費税額：{formatRoundingMethod(initial.rounding.taxAmount)}
       </p>
       <p class="muted">保存時に請求書番号を採番します。</p>
       <div class="actions">
-        <button type="submit" class="primary"
-          >{busy ? "保存中…" : "保存する"}</button
-        >
+        <button type="submit" class="primary">{busy ? "保存中…" : "保存する"}</button>
       </div>
     </section>
   </fieldset>

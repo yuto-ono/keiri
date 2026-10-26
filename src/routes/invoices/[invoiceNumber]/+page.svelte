@@ -6,9 +6,9 @@
 </script>
 
 {#if data.detail?.ok}
-  {#key data.detail.value.invoice.invoiceNumber}<InvoiceDetail
-      detail={data.detail.value}
-    />{/key}
-{:else if data.detail && !data.detail.ok}<ReadError
-    error={data.detail.error}
-  />{/if}
+  {#key data.detail.value.invoice.invoiceNumber}
+    <InvoiceDetail detail={data.detail.value} />
+  {/key}
+{:else if data.detail && !data.detail.ok}
+  <ReadError error={data.detail.error} />
+{/if}

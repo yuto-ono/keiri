@@ -33,11 +33,12 @@
   <h2 id="confirmation-heading">{title}</h2>
   <div class="dialog-body">{@render children()}</div>
   <div class="actions">
-    <button type="button" bind:this={cancelButton} onclick={onCancel}
-      >キャンセル</button
-    ><button type="button" class="danger" onclick={onConfirm}
-      >{confirmLabel}</button
-    >
+    <button type="button" bind:this={cancelButton} onclick={onCancel}>
+      キャンセル
+    </button>
+    <button type="button" class="danger" onclick={onConfirm}>
+      {confirmLabel}
+    </button>
   </div>
 </dialog>
 

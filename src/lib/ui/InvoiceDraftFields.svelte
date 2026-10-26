@@ -8,6 +8,7 @@
   } from "#lib/ui/invoice-editor";
   import { formatBankAccount, formatYen } from "#lib/ui/format";
   import InlineError from "./InlineError.svelte";
+
   let {
     form = $bindable(),
     context,
@@ -17,6 +18,7 @@
     context: InvoiceDraftFieldContext;
     calculation: InvoiceCalculation | null;
   } = $props();
+
   let tax = $derived(context.taxCategory);
   let bankChoices = $derived(context.bankAccounts);
 
@@ -25,6 +27,7 @@
     [lines[index], lines[index + delta]] = [lines[index + delta], lines[index]];
     form.lineItems = lines;
   }
+
   function moveBank(index: number, delta: number) {
     const ids = [...form.bankAccountIds];
     [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
@@ -45,48 +48,43 @@
     </div>
   </dl>
   <div class="form-grid">
-    <label
-      >敬称<select required bind:value={form.honorific}
-        ><option value="" disabled>選択してください</option><option value="御中"
-          >御中</option
-        ><option value="様">様</option></select
-      ></label
-    >
-    <label
-      >発行日<input
-        type="date"
-        required
-        bind:value={form.issueDate}
-      />{#if context.issueMonth}<span class="field-help"
-          >{formatBusinessMonth(context.issueMonth)}内で変更できます。</span
-        >{/if}</label
-    >
-    <label
-      >取引日<input
-        type="date"
-        required
-        bind:value={form.transactionDate}
-      /></label
-    >
-    <label
-      >支払期限<input
-        type="date"
-        required
-        bind:value={form.paymentDueDate}
-      /></label
-    >
+    <label>
+      敬称
+      <select required bind:value={form.honorific}>
+        <option value="" disabled>選択してください</option>
+        <option value="御中">御中</option>
+        <option value="様">様</option>
+      </select>
+    </label>
+    <label>
+      発行日
+      <input type="date" required bind:value={form.issueDate} />
+      {#if context.issueMonth}
+        <span class="field-help">{formatBusinessMonth(context.issueMonth)}内で変更できます。</span>
+      {/if}
+    </label>
+    <label>
+      取引日
+      <input type="date" required bind:value={form.transactionDate} />
+    </label>
+    <label>
+      支払期限
+      <input type="date" required bind:value={form.paymentDueDate} />
+    </label>
   </div>
-  <label class="checkbox-label"
-    ><input
-      type="checkbox"
-      bind:checked={form.unitPricesIncludeTax}
-    />明細の単価を税込として扱う</label
-  >
+  <label class="checkbox-label">
+    <input type="checkbox" bind:checked={form.unitPricesIncludeTax} />
+    明細の単価を税込として扱う
+  </label>
   <div class="tax-definition">
     <strong>税区分</strong>
-    {#if tax.ok}<p>
+    {#if tax.ok}
+      <p>
         {tax.value.name}（課税・標準税率 {tax.value.ratePercent}%）
-      </p>{:else}<InlineError error={tax.error} />{/if}
+      </p>
+    {:else}
+      <InlineError error={tax.error} />
+    {/if}
   </div>
   <div class="section-heading">
     <h3>明細</h3>
@@ -99,86 +97,100 @@
           quantity: undefined,
           unit: "",
           unitPrice: undefined,
-        })}>明細を追加</button
+        })}
     >
+      明細を追加
+    </button>
   </div>
-  {#if !form.lineItems.length}<p class="muted">
+  {#if !form.lineItems.length}
+    <p class="muted">
       明細はありません。明細0件でも下書きとして保存できます。
-    </p>{/if}
+    </p>
+  {/if}
   {#each form.lineItems as item, index (index)}
     <fieldset class="line-item">
       <legend>明細 {index + 1}</legend>
       <div class="form-grid">
-        <label class="item-name"
-          >品目名<input type="text" required bind:value={item.name} /></label
-        >
-        <label
-          >数量<input
+        <label class="item-name">
+          品目名
+          <input type="text" required bind:value={item.name} />
+        </label>
+        <label>
+          数量
+          <input
             type="number"
             required
             min="0.01"
             max="999999999999.99"
             step="0.01"
             bind:value={item.quantity}
-          /></label
-        >
-        <label>単位<input type="text" required bind:value={item.unit} /></label>
-        <label
-          >単価（円）<input
+          />
+        </label>
+        <label>
+          単位
+          <input type="text" required bind:value={item.unit} />
+        </label>
+        <label>
+          単価（円）
+          <input
             type="number"
             required
             min="1"
             max="999999999999"
             step="1"
             bind:value={item.unitPrice}
-          /></label
-        >
+          />
+        </label>
       </div>
       <p>
-        明細金額：{calculation
-          ? formatYen(calculation.lineAmounts[index])
-          : "—"}
+        明細金額：{calculation ? formatYen(calculation.lineAmounts[index]) : "—"}
       </p>
       <div class="actions">
         <button
           type="button"
           disabled={index === 0}
           aria-label={`明細${index + 1}を上へ`}
-          onclick={() => moveLine(index, -1)}>上へ</button
+          onclick={() => moveLine(index, -1)}
         >
+          上へ
+        </button>
         <button
           type="button"
           disabled={index === form.lineItems.length - 1}
           aria-label={`明細${index + 1}を下へ`}
-          onclick={() => moveLine(index, 1)}>下へ</button
+          onclick={() => moveLine(index, 1)}
         >
+          下へ
+        </button>
         <button
           type="button"
           aria-label={`明細${index + 1}を削除`}
-          onclick={() => form.lineItems.splice(index, 1)}>明細を削除</button
+          onclick={() => form.lineItems.splice(index, 1)}
         >
+          明細を削除
+        </button>
       </div>
     </fieldset>
   {/each}
-  <label class="notes-field"
-    >備考<textarea rows="4" bind:value={form.notes}></textarea></label
-  >
-  <label
-    >PDF個別ファイル名<input
-      type="text"
-      bind:value={form.pdfFileNameOverride}
-    /><span class="field-help"
-      >拡張子を含まない名前を指定します。空欄の場合は取引先の命名規則を使います。</span
-    ></label
-  >
+  <label class="notes-field">
+    備考
+    <textarea rows="4" bind:value={form.notes}></textarea>
+  </label>
+  <label>
+    PDF個別ファイル名
+    <input type="text" bind:value={form.pdfFileNameOverride} />
+    <span class="field-help">
+      拡張子を含まない名前を指定します。空欄の場合は取引先の命名規則を使います。
+    </span>
+  </label>
 </section>
 
 <section class="panel content-panel" aria-labelledby="bank-accounts-heading">
   <h2 id="bank-accounts-heading">振込先</h2>
   <div class="bank-choices">
     {#each bankChoices as account (account.id)}
-      <label class="checkbox-label"
-        ><input
+      <label class="checkbox-label">
+        <input
           type="checkbox"
           checked={form.bankAccountIds.includes(account.id)}
           onchange={(event) =>
@@ -189,34 +201,41 @@
             ))}
           disabled={!context.selectableBankAccountIds.includes(account.id) &&
             !form.bankAccountIds.includes(account.id)}
-        />{formatBankAccount(account)}</label
-      >
+        />
+        {formatBankAccount(account)}
+      </label>
     {/each}
   </div>
   <h3>表示順</h3>
-  {#if !form.bankAccountIds.length}<p class="muted">
+  {#if !form.bankAccountIds.length}
+    <p class="muted">
       振込先は選択されていません。発行には1件以上必要です。
-    </p>{/if}
+    </p>
+  {/if}
   <ol class="bank-order">
     {#each form.bankAccountIds as id, index (id)}
       <li>
-        <span
-          >{bankChoices.find((account) => account.id === id)?.bankName} / {bankChoices.find(
-            (account) => account.id === id,
-          )?.branchName}</span
-        >
+        <span>
+          {bankChoices.find((account) => account.id === id)?.bankName} /
+          {bankChoices.find((account) => account.id === id)?.branchName}
+        </span>
         <div class="actions">
           <button
             type="button"
             disabled={index === 0}
             aria-label={`振込先${index + 1}を上へ`}
-            onclick={() => moveBank(index, -1)}>上へ</button
-          ><button
+            onclick={() => moveBank(index, -1)}
+          >
+            上へ
+          </button>
+          <button
             type="button"
             disabled={index === form.bankAccountIds.length - 1}
             aria-label={`振込先${index + 1}を下へ`}
-            onclick={() => moveBank(index, 1)}>下へ</button
+            onclick={() => moveBank(index, 1)}
           >
+            下へ
+          </button>
         </div>
       </li>
     {/each}

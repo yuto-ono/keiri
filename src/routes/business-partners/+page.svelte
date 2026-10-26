@@ -13,8 +13,10 @@
     <div class="actions">
       <a
         class="button-link primary"
-        href={resolve("/business-partners/new-partner")}>新規登録</a
+        href={resolve("/business-partners/new-partner")}
       >
+        新規登録
+      </a>
       <ReloadButton />
     </div>
   </header>
@@ -23,25 +25,25 @@
   {:else}
     <div class="panel table-scroll">
       <table class="data-table">
-        <thead
-          ><tr
-            ><th scope="col">取引先コード</th><th scope="col">宛名</th><th
-              scope="col">月次請求</th
-            ></tr
-          ></thead
-        >
+        <thead>
+          <tr>
+            <th scope="col">取引先コード</th>
+            <th scope="col">宛名</th>
+            <th scope="col">月次請求</th>
+          </tr>
+        </thead>
         <tbody>
           {#each data.partners.value.businessPartners as partner (partner.code)}
             <tr class="linked-row">
-              <td
-                ><a
+              <td>
+                <a
                   href={resolve("/business-partners/[code]", {
                     code: partner.code,
                   })}
-                  >{partner.code}<span class="row-link" aria-hidden="true"
-                  ></span></a
-                ></td
-              >
+                >
+                  {partner.code}<span class="row-link" aria-hidden="true"></span>
+                </a>
+              </td>
               <td class="addressee">{partner.addresseeWithHonorific}</td>
               <td>{partner.requiresMonthlyInvoice ? "対象" : "対象外"}</td>
             </tr>

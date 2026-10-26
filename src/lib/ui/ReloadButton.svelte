@@ -22,7 +22,9 @@
   <button type="button" disabled={loading} onclick={reload}>
     {loading ? "読み込み中…" : "再読み込み"}
   </button>
-  {#if failed}<p role="alert">
+  {#if failed}
+    <p role="alert">
       再読み込みに失敗しました。もう一度お試しください。
-    </p>{/if}
+    </p>
+  {/if}
 </div>

@@ -5,8 +5,10 @@
   let { data }: PageProps = $props();
 </script>
 
-{#if data.creation?.ok}{#key data.creation.value.source?.invoiceNumber}<InvoiceCreation
-      context={data.creation.value}
-    />{/key}{:else if data.creation && !data.creation.ok}<ReadError
-    error={data.creation.error}
-  />{/if}
+{#if data.creation?.ok}
+  {#key data.creation.value.source?.invoiceNumber}
+    <InvoiceCreation context={data.creation.value} />
+  {/key}
+{:else if data.creation && !data.creation.ok}
+  <ReadError error={data.creation.error} />
+{/if}

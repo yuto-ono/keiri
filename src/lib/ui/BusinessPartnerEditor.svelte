@@ -114,11 +114,9 @@
   }
 </script>
 
-<svelte:head
-  ><title
-    >{creating ? "取引先の新規登録" : `${saved?.code} の取引先詳細`} | keiri</title
-  ></svelte:head
->
+<svelte:head>
+  <title>{creating ? "取引先の新規登録" : `${saved?.code} の取引先詳細`} | keiri</title>
+</svelte:head>
 <p class="back-link">
   <a href={resolve("/business-partners")}>取引先一覧へ</a>
 </p>
@@ -135,28 +133,36 @@
         aria-disabled={busy}
         onclick={(event) => {
           if (busy) event.preventDefault();
-        }}>キャンセル</a
+        }}
       >
+        キャンセル
+      </a>
     {:else}
-      <button type="button" disabled={busy} onclick={reload}
-        >最新のデータを読み直す</button
-      >
+      <button type="button" disabled={busy} onclick={reload}>
+        最新のデータを読み直す
+      </button>
     {/if}
   {/if}
 </header>
-{#if !creating && !completed}<p class="muted">
-    読み直すと、未保存の入力内容は破棄されます。
-  </p>{/if}
-{#if operationError}<InlineError error={operationError} focus={true} />{/if}
-{#if message}<p class="operation-message" role="status">{message}</p>{/if}
+{#if !creating && !completed}
+  <p class="muted">読み直すと、未保存の入力内容は破棄されます。</p>
+{/if}
+{#if operationError}
+  <InlineError error={operationError} focus={true} />
+{/if}
+{#if message}
+  <p class="operation-message" role="status">{message}</p>
+{/if}
 {#if navigationFailed}
   <section class="panel content-panel" role="status">
     <p>画面を移動できませんでした。</p>
-    {#if deleted}<a href={resolve("/business-partners")}>取引先一覧を開く</a>
-    {:else if saved}<a
-        href={resolve("/business-partners/[code]", { code: saved.code })}
-        >保存した取引先を開く</a
-      >{/if}
+    {#if deleted}
+      <a href={resolve("/business-partners")}>取引先一覧を開く</a>
+    {:else if saved}
+      <a href={resolve("/business-partners/[code]", { code: saved.code })}>
+        保存した取引先を開く
+      </a>
+    {/if}
   </section>
 {/if}
 <form
@@ -179,59 +185,58 @@
           請求書から参照されているため、コードは変更できません。
         </p>
       {:else}
-        <label
-          >取引先コード<input
+        <label>
+          取引先コード
+          <input
             type="text"
             required
             minlength="1"
             maxlength="12"
             pattern={"[A-Za-z0-9]{1,12}"}
             bind:value={form.code}
-          /><span class="field-help"
-            >1〜12文字の半角英数字。大文字・小文字を区別せず一意にします。</span
-          ></label
-        >
+          />
+          <span class="field-help">
+            1〜12文字の半角英数字。大文字・小文字を区別せず一意にします。
+          </span>
+        </label>
       {/if}
       <div class="form-grid">
-        <label
-          >宛名本体<input
-            type="text"
-            required
-            bind:value={form.addressee}
-          /></label
-        >
-        <label
-          >敬称<select required bind:value={form.honorific}
-            ><option value="" disabled>選択してください</option><option
-              value="御中">御中</option
-            ><option value="様">様</option></select
-          ></label
-        >
-        <label
-          >月次請求<select required bind:value={form.requiresMonthlyInvoice}
-            ><option value="" disabled>選択してください</option><option
-              value="yes">対象</option
-            ><option value="no">対象外</option></select
-          ></label
-        >
-        <label
-          >明細単価の初期値<select
-            required
-            bind:value={form.unitPricesIncludeTax}
-            ><option value="" disabled>選択してください</option><option
-              value="no">税抜</option
-            ><option value="yes">税込</option></select
-          ></label
-        >
+        <label>
+          宛名本体
+          <input type="text" required bind:value={form.addressee} />
+        </label>
+        <label>
+          敬称
+          <select required bind:value={form.honorific}>
+            <option value="" disabled>選択してください</option>
+            <option value="御中">御中</option>
+            <option value="様">様</option>
+          </select>
+        </label>
+        <label>
+          月次請求
+          <select required bind:value={form.requiresMonthlyInvoice}>
+            <option value="" disabled>選択してください</option>
+            <option value="yes">対象</option>
+            <option value="no">対象外</option>
+          </select>
+        </label>
+        <label>
+          明細単価の初期値
+          <select required bind:value={form.unitPricesIncludeTax}>
+            <option value="" disabled>選択してください</option>
+            <option value="no">税抜</option>
+            <option value="yes">税込</option>
+          </select>
+        </label>
       </div>
-      <label
-        >請求指示（任意）<textarea
-          rows="6"
-          bind:value={form.billingInstructions}></textarea><span
-          class="field-help"
-          >契約内容、請求方法、支払期限などの指示を自由に記載できます。</span
-        ></label
-      >
+      <label>
+        請求指示（任意）
+        <textarea rows="6" bind:value={form.billingInstructions}></textarea>
+        <span class="field-help">
+          契約内容、請求方法、支払期限などの指示を自由に記載できます。
+        </span>
+      </label>
     </section>
     <section
       class="panel content-panel"
@@ -240,21 +245,22 @@
       <h2 id="issuer-display-heading">発行者情報の表示</h2>
       <p>{screen.issuer.name}</p>
       <div class="contact-choices">
-        <label class="checkbox-label"
-          ><input
+        <label class="checkbox-label">
+          <input
             type="checkbox"
             disabled={screen.issuer.phone === null}
             bind:checked={form.showPhone}
-          />電話番号をPDFに表示（{screen.issuer.phone ?? "未登録"}）</label
-        >
-        <label class="checkbox-label"
-          ><input
+          />
+          電話番号をPDFに表示（{screen.issuer.phone ?? "未登録"}）
+        </label>
+        <label class="checkbox-label">
+          <input
             type="checkbox"
             disabled={screen.issuer.email === null}
             bind:checked={form.showEmail}
-          />メールアドレスをPDFに表示（{screen.issuer.email ??
-            "未登録"}）</label
-        >
+          />
+          メールアドレスをPDFに表示（{screen.issuer.email ?? "未登録"}）
+        </label>
       </div>
       <p class="muted">
         宛名・敬称・単価の初期値・発行者情報の変更は、新しく作成する下書きから反映されます。
@@ -265,8 +271,8 @@
       <p class="muted">PDFに表示する振込先を1件以上選択してください。</p>
       <div class="bank-choices">
         {#each screen.issuer.bankAccounts as account (account.id)}
-          <label class="checkbox-label"
-            ><input
+          <label class="checkbox-label">
+            <input
               type="checkbox"
               checked={form.bankAccountIds.includes(account.id)}
               onchange={(event) =>
@@ -275,23 +281,22 @@
                   account.id,
                   event.currentTarget.checked,
                 ))}
-            />{formatBankAccount(account)}</label
-          >
+            />
+            {formatBankAccount(account)}
+          </label>
         {/each}
       </div>
       <h3>表示順</h3>
-      {#if form.bankAccountIds.length === 0}<p class="muted">
-          振込先は選択されていません。
-        </p>{/if}
+      {#if form.bankAccountIds.length === 0}
+        <p class="muted">振込先は選択されていません。</p>
+      {/if}
       <ol class="bank-order">
         {#each form.bankAccountIds as id, index (id)}
           <li>
-            <span
-              >{screen.issuer.bankAccounts.find((account) => account.id === id)
-                ?.bankName} / {screen.issuer.bankAccounts.find(
-                (account) => account.id === id,
-              )?.branchName}</span
-            >
+            <span>
+              {screen.issuer.bankAccounts.find((account) => account.id === id)?.bankName} /
+              {screen.issuer.bankAccounts.find((account) => account.id === id)?.branchName}
+            </span>
             <div class="actions">
               <button
                 type="button"
@@ -302,8 +307,10 @@
                     form.bankAccountIds,
                     index,
                     -1,
-                  ))}>上へ</button
+                  ))}
               >
+                上へ
+              </button>
               <button
                 type="button"
                 disabled={index === form.bankAccountIds.length - 1}
@@ -313,8 +320,10 @@
                     form.bankAccountIds,
                     index,
                     1,
-                  ))}>下へ</button
+                  ))}
               >
+                下へ
+              </button>
             </div>
           </li>
         {/each}
@@ -322,21 +331,17 @@
     </section>
     <section class="panel content-panel" aria-labelledby="pdf-name-heading">
       <h2 id="pdf-name-heading">PDFファイル名</h2>
-      <label
-        >命名規則<input
-          type="text"
-          required
-          bind:value={form.pdfFileNamePattern}
-        /><span class="field-help">拡張子 .pdf は自動で追加します。</span
-        ></label
-      >
+      <label>
+        命名規則
+        <input type="text" required bind:value={form.pdfFileNamePattern} />
+        <span class="field-help">拡張子 .pdf は自動で追加します。</span>
+      </label>
       <p class="muted">使用できる差し込み：</p>
       <ul class="pattern-help">
         <li><code>{"{businessPartnerCode}"}</code>：取引先コード</li>
         <li><code>{"{addresseeWithHonorific}"}</code>：敬称を含む宛名</li>
         <li>
-          <code>{"{issueDate:YYYYMM}"}</code
-          >：発行日（YYYY・MM・DDを使用できます）
+          <code>{"{issueDate:YYYYMM}"}</code>：発行日（YYYY・MM・DDを使用できます）
         </li>
         <li><code>{"{sequence}"}</code>：2桁の連番</li>
       </ul>
@@ -345,9 +350,7 @@
       </p>
     </section>
     <div class="actions">
-      <button type="submit" class="primary"
-        >{busy ? "処理中…" : "保存する"}</button
-      >
+      <button type="submit" class="primary">{busy ? "処理中…" : "保存する"}</button>
     </div>
   </fieldset>
 </form>
@@ -357,15 +360,19 @@
     aria-labelledby="delete-heading"
   >
     <h2 id="delete-heading">取引先の削除</h2>
-    {#if screen.hasInvoiceReferences}<p class="muted">
+    {#if screen.hasInvoiceReferences}
+      <p class="muted">
         請求書から参照されている取引先は削除できません。
-      </p>{/if}
+      </p>
+    {/if}
     <button
       type="button"
       class="danger"
       disabled={busy || screen.hasInvoiceReferences}
-      onclick={() => (confirmDelete = true)}>取引先を削除</button
+      onclick={() => (confirmDelete = true)}
     >
+      取引先を削除
+    </button>
   </section>
 {/if}
 {#if confirmDelete && saved}

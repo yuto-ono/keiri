@@ -18,20 +18,24 @@
       <dt>登録番号</dt>
       <dd>{snapshot.registrationNumber}</dd>
     </div>
-    {#if snapshot.phone.visible}<div>
+    {#if snapshot.phone.visible}
+      <div>
         <dt>電話番号</dt>
         <dd>{snapshot.phone.value}</dd>
-      </div>{/if}
-    {#if snapshot.email.visible}<div>
+      </div>
+    {/if}
+    {#if snapshot.email.visible}
+      <div>
         <dt>メールアドレス</dt>
         <dd>{snapshot.email.value}</dd>
-      </div>{/if}
+      </div>
+    {/if}
   </dl>
   {#if showBanks}
     <h3>振込先</h3>
-    {#each snapshot.bankAccounts as account (account.id)}<p>
-        {formatBankAccount(account)}
-      </p>{/each}
+    {#each snapshot.bankAccounts as account (account.id)}
+      <p>{formatBankAccount(account)}</p>
+    {/each}
   {/if}
 </section>
 

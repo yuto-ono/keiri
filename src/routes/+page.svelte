@@ -21,9 +21,7 @@
     <div>
       <h1>ダッシュボード</h1>
       <p class="muted">
-        <time datetime={dashboard.today}
-          >{formatBusinessDate(dashboard.today)}</time
-        >
+        <time datetime={dashboard.today}>{formatBusinessDate(dashboard.today)}</time>
       </p>
     </div>
     <ReloadButton />
@@ -73,32 +71,31 @@
       {:else}
         <div class="table-scroll">
           <table class="data-table">
-            <thead
-              ><tr
-                ><th scope="col">支払期限</th><th scope="col">請求書番号</th><th
-                  scope="col">宛名</th
-                ><th scope="col" class="amount">請求合計</th></tr
-              ></thead
-            >
+            <thead>
+              <tr>
+                <th scope="col">支払期限</th>
+                <th scope="col">請求書番号</th>
+                <th scope="col">宛名</th>
+                <th scope="col" class="amount">請求合計</th>
+              </tr>
+            </thead>
             <tbody>
               {#each dashboard.overdueInvoices as invoice (invoice.invoiceNumber)}
                 <tr class="linked-row">
-                  <td
-                    ><time datetime={invoice.paymentDueDate}
-                      >{formatBusinessDate(invoice.paymentDueDate)}</time
-                    ></td
-                  >
-                  <td
-                    ><a
+                  <td>
+                    <time datetime={invoice.paymentDueDate}>
+                      {formatBusinessDate(invoice.paymentDueDate)}
+                    </time>
+                  </td>
+                  <td>
+                    <a
                       href={resolve("/invoices/[invoiceNumber]", {
                         invoiceNumber: invoice.invoiceNumber,
                       })}
-                      >{invoice.invoiceNumber}<span
-                        class="row-link"
-                        aria-hidden="true"
-                      ></span></a
-                    ></td
-                  >
+                    >
+                      {invoice.invoiceNumber}<span class="row-link" aria-hidden="true"></span>
+                    </a>
+                  </td>
                   <td class="addressee">{invoice.addresseeWithHonorific}</td>
                   <td class="amount">{formatYen(invoice.totalAmount)}</td>
                 </tr>

@@ -49,8 +49,12 @@
       <dd>{saved.id}</dd>
     </div>
   </dl>
-  {#if operationError}<InlineError error={operationError} focus={true} />{/if}
-  {#if message}<p class="operation-message" role="status">{message}</p>{/if}
+  {#if operationError}
+    <InlineError error={operationError} focus={true} />
+  {/if}
+  {#if message}
+    <p class="operation-message" role="status">{message}</p>
+  {/if}
   <form
     onsubmit={(event) => {
       event.preventDefault();
@@ -59,34 +63,32 @@
   >
     <fieldset disabled={busy}>
       <div class="form-grid">
-        <label
-          >氏名または名称<input
-            type="text"
-            required
-            bind:value={form.name}
-          /></label
-        >
-        <label
-          >登録番号<input
+        <label>
+          氏名または名称
+          <input type="text" required bind:value={form.name} />
+        </label>
+        <label>
+          登録番号
+          <input
             type="text"
             required
             minlength="14"
             maxlength="14"
             pattern={"T[0-9]{13}"}
             bind:value={form.registrationNumber}
-          /><span class="field-help"
-            >半角大文字Tと13桁の半角数字で入力してください。</span
-          ></label
-        >
-        <label
-          >電話番号（任意）<input type="text" bind:value={form.phone} /></label
-        >
-        <label
-          >メールアドレス（任意）<input
-            type="text"
-            bind:value={form.email}
-          /></label
-        >
+          />
+          <span class="field-help">
+            半角大文字Tと13桁の半角数字で入力してください。
+          </span>
+        </label>
+        <label>
+          電話番号（任意）
+          <input type="text" bind:value={form.phone} />
+        </label>
+        <label>
+          メールアドレス（任意）
+          <input type="text" bind:value={form.email} />
+        </label>
       </div>
       <p class="muted">
         取引先が表示対象にしている連絡先は、先に取引先の表示設定を変更するまで削除できません。
@@ -96,8 +98,9 @@
         <button
           type="button"
           onclick={() => (form = appendIssuerBankAccount(form))}
-          >振込先を追加</button
         >
+          振込先を追加
+        </button>
       </div>
       {#each form.bankAccounts as account, index (account.key)}
         <fieldset class="bank-account">
@@ -110,51 +113,50 @@
               </div>
             </dl>
           {:else}
-            <label
-              >振込先ID<input
+            <label>
+              振込先ID
+              <input
                 type="text"
                 required
                 maxlength="32"
                 bind:value={account.id}
-              /><span class="field-help"
-                >32文字以下の半角英数字とハイフン。先頭・末尾は英数字、ハイフンの連続は使えません。保存後は変更できません。</span
-              ></label
-            >
+              />
+              <span class="field-help">
+                32文字以下の半角英数字とハイフン。先頭・末尾は英数字、ハイフンの連続は使えません。保存後は変更できません。
+              </span>
+            </label>
           {/if}
           <div class="form-grid">
-            <label
-              >銀行名<input
-                type="text"
-                required
-                bind:value={account.bankName}
-              /></label
-            >
-            <label
-              >支店名<input
-                type="text"
-                required
-                bind:value={account.branchName}
-              /></label
-            >
-            <label
-              >支店番号（任意）<input
+            <label>
+              銀行名
+              <input type="text" required bind:value={account.bankName} />
+            </label>
+            <label>
+              支店名
+              <input type="text" required bind:value={account.branchName} />
+            </label>
+            <label>
+              支店番号（任意）
+              <input
                 type="text"
                 inputmode="numeric"
                 maxlength="3"
                 pattern={"[0-9]{3}"}
                 bind:value={account.branchCode}
-              /><span class="field-help">入力する場合は3桁の半角数字。</span
-              ></label
-            >
-            <label
-              >口座種別<select required bind:value={account.accountType}
-                ><option value="" disabled>選択してください</option><option
-                  value="ordinary">普通</option
-                ><option value="checking">当座</option></select
-              ></label
-            >
-            <label
-              >口座番号<input
+              />
+              <span class="field-help">入力する場合は3桁の半角数字。</span>
+            </label>
+            <label>
+              口座種別
+              <select required bind:value={account.accountType}>
+                <option value="" disabled>選択してください</option>
+                <option value="ordinary">普通</option>
+                <option value="checking">当座</option>
+              </select>
+            </label>
+            <label>
+              口座番号
+              <input
                 type="text"
                 required
                 inputmode="numeric"
@@ -162,27 +164,24 @@
                 maxlength="7"
                 pattern={"[0-9]{7}"}
                 bind:value={account.accountNumber}
-              /><span class="field-help"
-                >7桁の半角数字。先頭の0も入力してください。</span
-              ></label
-            >
-            <label
-              >口座名義<input
-                type="text"
-                required
-                bind:value={account.accountHolderName}
-              /></label
-            >
+              />
+              <span class="field-help">7桁の半角数字。先頭の0も入力してください。</span>
+            </label>
+            <label>
+              口座名義
+              <input type="text" required bind:value={account.accountHolderName} />
+            </label>
           </div>
           <div class="actions">
-            <label class="checkbox-label"
-              ><input
+            <label class="checkbox-label">
+              <input
                 type="radio"
                 name="default-bank-account"
                 value={account.key}
                 bind:group={form.defaultBankAccountKey}
-              />既定の振込先</label
-            >
+              />
+              既定の振込先
+            </label>
             <button
               type="button"
               disabled={form.defaultBankAccountKey === account.key}
@@ -190,12 +189,16 @@
               onclick={() =>
                 (form.bankAccounts = form.bankAccounts.filter(
                   (candidate) => candidate.key !== account.key,
-                ))}>振込先を削除</button
+                ))}
             >
+              振込先を削除
+            </button>
           </div>
-          {#if form.defaultBankAccountKey === account.key}<p class="field-help">
+          {#if form.defaultBankAccountKey === account.key}
+            <p class="field-help">
               削除するには、先に別の振込先を既定にしてください。
-            </p>{/if}
+            </p>
+          {/if}
         </fieldset>
       {/each}
       <p class="muted">
@@ -206,9 +209,9 @@
       </p>
       <div class="actions">
         <button type="submit" class="primary">発行者を保存</button>
-        <button type="button" onclick={() => change(true)}
-          >発行者の最新データを読み直す</button
-        >
+        <button type="button" onclick={() => change(true)}>
+          発行者の最新データを読み直す
+        </button>
       </div>
       <p class="field-help">
         読み直すと、発行者・振込先の未保存の入力内容は破棄されます。

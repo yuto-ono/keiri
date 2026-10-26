@@ -27,28 +27,35 @@
         <a
           href={resolve("/")}
           aria-current={page.url.pathname === resolve("/") ? "page" : undefined}
-          >ダッシュボード</a
         >
+          ダッシュボード
+        </a>
         <a
           href={resolve("/invoices")}
           aria-current={page.url.pathname === resolve("/invoices") ||
           page.url.pathname.startsWith(`${resolve("/invoices")}/`)
             ? "page"
-            : undefined}>請求書</a
+            : undefined}
         >
+          請求書
+        </a>
         <a
           href={resolve("/business-partners")}
           aria-current={page.url.pathname === resolve("/business-partners") ||
           page.url.pathname.startsWith(`${resolve("/business-partners")}/`)
             ? "page"
-            : undefined}>取引先</a
+            : undefined}
         >
+          取引先
+        </a>
         <a
           href={resolve("/settings")}
           aria-current={page.url.pathname === resolve("/settings")
             ? "page"
-            : undefined}>設定</a
+            : undefined}
         >
+          設定
+        </a>
       </nav>
     </aside>
     <main id="main-content" tabindex="-1">{@render children()}</main>

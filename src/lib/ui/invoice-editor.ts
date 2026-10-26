@@ -132,13 +132,12 @@ export function getBankAccountChoices(
   currentAccounts: readonly BankAccount[],
 ): BankAccount[] {
   const accounts = new Map(
-    invoice.issuer.snapshot.bankAccounts.map((account) => [
-      account.id,
-      account,
-    ]),
+    invoice.issuer.snapshot.bankAccounts.map((account) => [account.id, account]),
   );
+
   for (const account of currentAccounts)
     if (!accounts.has(account.id)) accounts.set(account.id, account);
+
   return [...accounts.values()];
 }
 

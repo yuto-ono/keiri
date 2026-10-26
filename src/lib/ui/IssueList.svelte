@@ -10,7 +10,9 @@
   {#each issues as issue, index (index)}
     {@const location = formatIssueLocation(issue, filePath)}
     <li>
-      {#if location}<code>{location}</code>{/if}
+      {#if location}
+        <code>{location}</code>
+      {/if}
       <span>{issue.message}</span>
     </li>
   {/each}

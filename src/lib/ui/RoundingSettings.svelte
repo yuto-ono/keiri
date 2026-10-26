@@ -46,8 +46,12 @@
 >
   <h2 id="rounding-settings-heading">端数処理</h2>
   <p class="muted">リビジョン {saved.revision}</p>
-  {#if operationError}<InlineError error={operationError} focus={true} />{/if}
-  {#if message}<p class="operation-message" role="status">{message}</p>{/if}
+  {#if operationError}
+    <InlineError error={operationError} focus={true} />
+  {/if}
+  {#if message}
+    <p class="operation-message" role="status">{message}</p>
+  {/if}
   <form
     onsubmit={(event) => {
       event.preventDefault();
@@ -56,27 +60,29 @@
   >
     <fieldset disabled={busy}>
       <div class="form-grid">
-        <label
-          >明細金額<select required bind:value={form.lineAmount}
-            >{#each methods as method (method)}<option value={method}
-                >{formatRoundingMethod(method)}</option
-              >{/each}</select
-          ></label
-        >
-        <label
-          >消費税額<select required bind:value={form.taxAmount}
-            >{#each methods as method (method)}<option value={method}
-                >{formatRoundingMethod(method)}</option
-              >{/each}</select
-          ></label
-        >
+        <label>
+          明細金額
+          <select required bind:value={form.lineAmount}>
+            {#each methods as method (method)}
+              <option value={method}>{formatRoundingMethod(method)}</option>
+            {/each}
+          </select>
+        </label>
+        <label>
+          消費税額
+          <select required bind:value={form.taxAmount}>
+            {#each methods as method (method)}
+              <option value={method}>{formatRoundingMethod(method)}</option>
+            {/each}
+          </select>
+        </label>
       </div>
       <p class="muted">変更は新しく作成する下書きから反映されます。</p>
       <div class="actions">
         <button type="submit" class="primary">端数処理を保存</button>
-        <button type="button" onclick={() => change(true)}
-          >端数処理の最新データを読み直す</button
-        >
+        <button type="button" onclick={() => change(true)}>
+          端数処理の最新データを読み直す
+        </button>
       </div>
       <p class="field-help">
         読み直すと、端数処理の未保存の入力内容は破棄されます。

@@ -12,7 +12,9 @@
 <section class="panel read-error" role="alert" aria-label={title}>
   <h1>{title}</h1>
   <p>{error.message}</p>
-  {#if error.issues.length > 0}<IssueList issues={error.issues} />{/if}
+  {#if error.issues.length > 0}
+    <IssueList issues={error.issues} />
+  {/if}
   <ReloadButton />
 </section>
 

@@ -12,7 +12,9 @@
 
 <div class="inline-error" role="alert" bind:this={element} tabindex="-1">
   <p>{error.message}</p>
-  {#if error.issues.length}<IssueList issues={error.issues} />{/if}
+  {#if error.issues.length}
+    <IssueList issues={error.issues} />
+  {/if}
 </div>
 
 <style>

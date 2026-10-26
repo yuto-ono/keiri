@@ -136,9 +136,9 @@
 
 <svelte:head><title>{saved.invoiceNumber} | keiri</title></svelte:head>
 <p class="back-link">
-  <a href={resolve(`/invoices?year=${saved.transactionDate.slice(0, 4)}`)}
-    >請求書一覧へ戻る</a
-  >
+  <a href={resolve(`/invoices?year=${saved.transactionDate.slice(0, 4)}`)}>
+    請求書一覧へ戻る
+  </a>
 </p>
 <header class="page-header">
   <div>
@@ -156,14 +156,21 @@
       aria-disabled={busy}
       onclick={(event) => {
         if (busy) event.preventDefault();
-      }}>複製する</a
-    ><button type="button" disabled={busy} onclick={reload}
-      >最新データを読み直す</button
+      }}
     >
+      複製する
+    </a>
+    <button type="button" disabled={busy} onclick={reload}>
+      最新データを読み直す
+    </button>
   </div>
 </header>
-{#if operationError}<InlineError error={operationError} focus={true} />{/if}
-{#if message}<p class="operation-message" role="status">{message}</p>{/if}
+{#if operationError}
+  <InlineError error={operationError} focus={true} />
+{/if}
+{#if message}
+  <p class="operation-message" role="status">{message}</p>
+{/if}
 
 {#if saved.status === "draft"}
   <form
@@ -187,47 +194,42 @@
           <div>
             <dt>税抜額</dt>
             <dd>
-              {preview.ok
-                ? formatYen(preview.value.calculation.taxableAmount)
-                : "—"}
+              {preview.ok ? formatYen(preview.value.calculation.taxableAmount) : "—"}
             </dd>
           </div>
           <div>
             <dt>消費税額</dt>
             <dd>
-              {preview.ok
-                ? formatYen(preview.value.calculation.taxAmount)
-                : "—"}
+              {preview.ok ? formatYen(preview.value.calculation.taxAmount) : "—"}
             </dd>
           </div>
           <div>
             <dt>請求合計</dt>
             <dd class="total-amount">
-              {preview.ok
-                ? formatYen(preview.value.calculation.totalAmount)
-                : "—"}
+              {preview.ok ? formatYen(preview.value.calculation.totalAmount) : "—"}
             </dd>
           </div>
         </dl>
         <p class="muted">
-          明細金額：{formatRoundingMethod(saved.rounding.lineAmount)} / 消費税額：{formatRoundingMethod(
-            saved.rounding.taxAmount,
-          )}
+          明細金額：{formatRoundingMethod(saved.rounding.lineAmount)} /
+          消費税額：{formatRoundingMethod(saved.rounding.taxAmount)}
         </p>
         <div class="actions">
-          <button type="submit" class="primary"
-            >{busy ? "処理中…" : "保存する"}</button
-          >
+          <button type="submit" class="primary">{busy ? "処理中…" : "保存する"}</button>
         </div>
       </div>
     </fieldset>
   </form>
   <InvoiceIssuer snapshot={saved.issuer.snapshot} showBanks={false} />
   <section class="panel content-panel" aria-label="請求書の操作">
-    {#if dirty}<p>
+    {#if dirty}
+      <p>
         未保存の変更があります。発行する前に保存してください。
-      </p>{/if}
-    {#if dirty}<p class="muted">複製には保存済みの内容を使います。</p>{/if}
+      </p>
+    {/if}
+    {#if dirty}
+      <p class="muted">複製には保存済みの内容を使います。</p>
+    {/if}
     <div class="actions">
       <button
         type="button"
@@ -237,13 +239,18 @@
           change(
             () => issueSavedInvoice(fetch, saved, form, todayInTokyo()),
             "発行しました",
-          )}>発行する</button
-      ><button
+          )}
+      >
+        発行する
+      </button>
+      <button
         type="button"
         class="danger"
         disabled={busy}
-        onclick={() => (confirmation = "delete")}>下書きを削除</button
+        onclick={() => (confirmation = "delete")}
       >
+        下書きを削除
+      </button>
     </div>
   </section>
 {:else}
@@ -257,8 +264,7 @@
       <div>
         <dt>宛名</dt>
         <dd>
-          {saved.businessPartner.snapshot.addressee}{saved.businessPartner
-            .snapshot.honorific}
+          {saved.businessPartner.snapshot.addressee}{saved.businessPartner.snapshot.honorific}
         </dd>
       </div>
       <div>
@@ -280,29 +286,31 @@
       <div>
         <dt>税区分</dt>
         <dd>
-          {amounts.taxCategory?.name}（課税・標準税率 {amounts.taxCategory
-            ?.ratePercent}%）
+          {amounts.taxCategory?.name}（課税・標準税率 {amounts.taxCategory?.ratePercent}%）
         </dd>
       </div>
     </dl>
     <div class="table-scroll">
       <table class="data-table">
-        <thead
-          ><tr
-            ><th scope="col">品目名</th><th scope="col" class="amount">数量</th
-            ><th scope="col">単位</th><th scope="col" class="amount">単価</th
-            ><th scope="col" class="amount">明細金額</th></tr
-          ></thead
-        ><tbody>
-          {#each saved.lineItems as item, index (index)}<tr
-              ><td class="item-name">{item.name}</td><td class="amount"
-                >{item.quantity}</td
-              ><td>{item.unit}</td><td class="amount"
-                >{formatYen(String(item.unitPrice))}</td
-              ><td class="amount"
-                >{formatYen(amounts.calculation.lineAmounts[index])}</td
-              ></tr
-            >{/each}
+        <thead>
+          <tr>
+            <th scope="col">品目名</th>
+            <th scope="col" class="amount">数量</th>
+            <th scope="col">単位</th>
+            <th scope="col" class="amount">単価</th>
+            <th scope="col" class="amount">明細金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each saved.lineItems as item, index (index)}
+            <tr>
+              <td class="item-name">{item.name}</td>
+              <td class="amount">{item.quantity}</td>
+              <td>{item.unit}</td>
+              <td class="amount">{formatYen(String(item.unitPrice))}</td>
+              <td class="amount">{formatYen(amounts.calculation.lineAmounts[index])}</td>
+            </tr>
+          {/each}
         </tbody>
       </table>
     </div>
@@ -323,9 +331,8 @@
       </div>
     </dl>
     <p class="muted">
-      明細金額：{formatRoundingMethod(saved.rounding.lineAmount)} / 消費税額：{formatRoundingMethod(
-        saved.rounding.taxAmount,
-      )}
+      明細金額：{formatRoundingMethod(saved.rounding.lineAmount)} /
+      消費税額：{formatRoundingMethod(saved.rounding.taxAmount)}
     </p>
     <h3>備考</h3>
     <p class="notes">{saved.notes ?? "なし"}</p>
@@ -352,26 +359,29 @@
       }}
     >
       <fieldset disabled={busy}>
-        <label class="payment-date"
-          >入金完了日<input
+        <label class="payment-date">
+          入金完了日
+          <input
             type="date"
             required
             max={screen.today}
             onfocus={() => (screen.today = todayInTokyo())}
             bind:value={paymentDate}
-          /></label
-        >
+          />
+        </label>
         <div class="actions">
-          <button type="submit" class="primary"
-            >{saved.paymentCompletedDate === null
-              ? "記録する"
-              : "更新する"}</button
-          >{#if saved.paymentCompletedDate !== null}<button
+          <button type="submit" class="primary">
+            {saved.paymentCompletedDate === null ? "記録する" : "更新する"}
+          </button>
+          {#if saved.paymentCompletedDate !== null}
+            <button
               type="button"
               class="danger"
               onclick={() => (confirmation = "delete-payment")}
-              >入金完了日を削除</button
-            >{/if}
+            >
+              入金完了日を削除
+            </button>
+          {/if}
         </div>
       </fieldset>
     </form>
@@ -385,20 +395,26 @@
           { invoiceNumber: saved.invoiceNumber },
         )}
         target="_blank"
-        rel="noreferrer">PDFを直接開く</a
+        rel="noreferrer"
       >
+        PDFを直接開く
+      </a>
     </div>
     <iframe title={`${saved.invoiceNumber} の正式PDF`} src={pdfUrl}></iframe>
   </section>
   <section class="panel content-panel" aria-label="請求書の操作">
-    {#if saved.paymentCompletedDate !== null}<p class="muted">
+    {#if saved.paymentCompletedDate !== null}
+      <p class="muted">
         下書きへ戻すには、先に入金完了日を削除してください。
-      </p>{/if}
+      </p>
+    {/if}
     <button
       type="button"
       disabled={busy || saved.paymentCompletedDate !== null}
-      onclick={() => (confirmation = "revert")}>下書きへ戻す</button
+      onclick={() => (confirmation = "revert")}
     >
+      下書きへ戻す
+    </button>
   </section>
 {/if}
 
@@ -414,14 +430,16 @@
     onCancel={() => (confirmation = null)}
   >
     <p>請求書番号：{saved.invoiceNumber}</p>
-    {#if confirmation === "delete"}<p>
-        下書きを完全に削除します。keiri上では元に戻せません。
-      </p>{:else if confirmation === "revert"}<p>
-        正式PDFを破棄して下書きへ戻します。
-      </p>{:else if saved.paymentCompletedDate}<p>
+    {#if confirmation === "delete"}
+      <p>下書きを完全に削除します。keiri上では元に戻せません。</p>
+    {:else if confirmation === "revert"}
+      <p>正式PDFを破棄して下書きへ戻します。</p>
+    {:else if saved.paymentCompletedDate}
+      <p>
         入金完了日：{formatBusinessDate(saved.paymentCompletedDate)}
       </p>
-      <p>この入金完了日を削除します。</p>{/if}
+      <p>この入金完了日を削除します。</p>
+    {/if}
   </ConfirmDialog>
 {/if}
 
