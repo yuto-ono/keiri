@@ -28,7 +28,7 @@ export interface InvoiceCalculation {
 }
 
 export function resolveInvoiceAmounts(
-  invoice: Invoice,
+  invoice: Pick<Invoice, "lineItems" | "unitPricesIncludeTax" | "rounding">,
   taxCategories: readonly TaxCategory[],
 ): { calculation: InvoiceCalculation; taxCategory: TaxableTaxCategory | null } {
   if (invoice.lineItems.length === 0) {

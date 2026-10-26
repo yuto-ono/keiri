@@ -1,5 +1,7 @@
 import { isBusinessDate, isBusinessDateAfter } from "#lib/domain/business-date";
 import { resolveInvoiceAmounts } from "#lib/domain/invoice-calculation";
+import { DomainValidationError } from "#lib/domain/domain-validation-error";
+import { selectCurrentStandardTaxCategory } from "#lib/domain/tax-category";
 import type {
   BusinessPartner,
   Invoice,
@@ -119,6 +121,54 @@ export async function getInvoice(
 }
 
 export type InvoiceDetail = NonNullable<Awaited<ReturnType<typeof getInvoice>>>;
+
+export async function getInvoiceCreationData(
+  gateway: KeiriReadGateway,
+  sourceInvoiceNumber?: string,
+) {
+  const data = await gateway.loadData();
+  const source =
+    sourceInvoiceNumber === undefined
+      ? undefined
+      : data.invoices.find(
+          (invoice) => invoice.invoiceNumber === sourceInvoiceNumber,
+        );
+  if (sourceInvoiceNumber !== undefined && source === undefined)
+    return undefined;
+  if (data.issuers.length !== 1) {
+    throw new DomainValidationError("請求書を作成できません。", [
+      { path: ["issuers"], message: "初期版の発行者は1件必要です。" },
+    ]);
+  }
+  const currentTaxCategory = selectCurrentStandardTaxCategory(
+    data.taxCategories,
+  );
+  return {
+    businessPartners: data.businessPartners.toSorted((left, right) =>
+      left.code < right.code ? -1 : left.code > right.code ? 1 : 0,
+    ),
+    issuer: data.issuers[0],
+    rounding: data.settings.rounding,
+    taxCategory:
+      source === undefined
+        ? currentTaxCategory
+        : (resolveInvoiceAmounts(source, data.taxCategories).taxCategory ??
+          currentTaxCategory),
+    source:
+      source === undefined
+        ? null
+        : {
+            invoiceNumber: source.invoiceNumber,
+            businessPartnerCode: source.businessPartner.code,
+            lineItems: source.lineItems,
+            notes: source.notes,
+          },
+  };
+}
+
+export type InvoiceCreationData = NonNullable<
+  Awaited<ReturnType<typeof getInvoiceCreationData>>
+>;
 
 export async function listBusinessPartners(gateway: KeiriReadGateway) {
   const data = await gateway.loadData();

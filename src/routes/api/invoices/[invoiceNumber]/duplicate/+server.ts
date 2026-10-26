@@ -8,6 +8,10 @@ import {
 } from "#lib/server/data-directory";
 import { FileInvoiceCreationGateway } from "#lib/server/file-invoice-creation-gateway";
 import { handleDuplicateInvoiceRequest } from "#lib/server/invoice-api";
+import { handleGetInvoiceCreationDataRequest } from "#lib/server/read-api";
+
+export const GET: RequestHandler = ({ params }) =>
+  handleGetInvoiceCreationDataRequest(params.invoiceNumber);
 
 export const POST: RequestHandler = async ({ request, url, params }) => {
   try {

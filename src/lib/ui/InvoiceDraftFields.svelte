@@ -1,30 +1,23 @@
-<script lang="ts">
-  import type { InvoiceDetail } from "#lib/application/read-keiri-data";
-  import type { Invoice } from "#lib/domain/model";
+<script lang="ts" generics="Form extends InvoiceDraftForm">
   import type { InvoiceCalculation } from "#lib/domain/invoice-calculation";
   import { formatBusinessMonth } from "#lib/domain/business-date";
   import {
-    getBankAccountChoices,
-    getEditingTaxCategory,
     type InvoiceDraftForm,
+    type InvoiceDraftFieldContext,
   } from "#lib/ui/invoice-editor";
   import { formatBankAccount, formatYen } from "#lib/ui/format";
   import InlineError from "./InlineError.svelte";
   let {
     form = $bindable(),
-    invoice,
-    options,
+    context,
     calculation,
   }: {
-    form: InvoiceDraftForm;
-    invoice: Invoice;
-    options: InvoiceDetail["editOptions"];
+    form: Form;
+    context: InvoiceDraftFieldContext;
     calculation: InvoiceCalculation | null;
   } = $props();
-  let tax = $derived(getEditingTaxCategory(invoice, options));
-  let bankChoices = $derived(
-    getBankAccountChoices(invoice, options.bankAccounts),
-  );
+  let tax = $derived(context.taxCategory);
+  let bankChoices = $derived(context.bankAccounts);
 
   function moveLine(index: number, delta: number) {
     const lines = [...form.lineItems];
@@ -43,27 +36,29 @@
   <dl class="details-grid">
     <div>
       <dt>取引先コード</dt>
-      <dd>{invoice.businessPartner.code}</dd>
+      <dd>{context.businessPartnerCode || "未選択"}</dd>
     </div>
     <div>
       <dt>宛名本体</dt>
-      <dd>{invoice.businessPartner.snapshot.addressee}</dd>
+      <dd>{context.addressee || "未選択"}</dd>
     </div>
   </dl>
   <div class="form-grid">
     <label
-      >敬称<select bind:value={form.honorific}
-        ><option value="御中">御中</option><option value="様">様</option
-        ></select
+      >敬称<select required bind:value={form.honorific}
+        ><option value="" disabled>選択してください</option><option value="御中"
+          >御中</option
+        ><option value="様">様</option></select
       ></label
     >
     <label
-      >発行日<input type="date" required bind:value={form.issueDate} /><span
-        class="field-help"
-        >{formatBusinessMonth(
-          invoice.issueDate.slice(0, 7),
-        )}内で変更できます。</span
-      ></label
+      >発行日<input
+        type="date"
+        required
+        bind:value={form.issueDate}
+      />{#if context.issueMonth}<span class="field-help"
+          >{formatBusinessMonth(context.issueMonth)}内で変更できます。</span
+        >{/if}</label
     >
     <label
       >取引日<input
@@ -186,9 +181,8 @@
           type="checkbox"
           value={account.id}
           bind:group={form.bankAccountIds}
-          disabled={!options.bankAccounts.some(
-            (current) => current.id === account.id,
-          ) && !form.bankAccountIds.includes(account.id)}
+          disabled={!context.selectableBankAccountIds.includes(account.id) &&
+            !form.bankAccountIds.includes(account.id)}
         />{formatBankAccount(account)}</label
       >
     {/each}

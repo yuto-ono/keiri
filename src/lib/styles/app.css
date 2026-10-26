@@ -48,7 +48,8 @@ a {
   color: var(--accent);
   text-underline-offset: 0.2em;
 }
-button {
+button,
+.button-link {
   font: inherit;
   font-size: 0.875rem;
   color: var(--text);
@@ -57,6 +58,15 @@ button {
   border-radius: 0.375rem;
   padding: 0.625rem 1rem;
   cursor: pointer;
+}
+.button-link {
+  display: inline-flex;
+  text-decoration: none;
+  align-items: center;
+}
+.button-link[aria-disabled="true"] {
+  opacity: 0.65;
+  pointer-events: none;
 }
 button:hover:enabled {
   background: var(--accent-light);
@@ -106,6 +116,10 @@ code {
   color: white;
 }
 button.primary:hover:enabled {
+  background: #194752;
+  color: white;
+}
+.button-link.primary:hover {
   background: #194752;
   color: white;
 }

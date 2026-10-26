@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
 
   let loading = $state(false);
   let failed = $state(false);
@@ -9,7 +9,7 @@
     loading = true;
     failed = false;
     try {
-      await invalidateAll();
+      await refreshAll();
     } catch {
       failed = true;
     } finally {

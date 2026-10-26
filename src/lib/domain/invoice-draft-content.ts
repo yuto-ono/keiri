@@ -8,7 +8,15 @@ import type { Invoice, TaxCategory } from "#lib/domain/model";
 import { validatePdfBaseName } from "#lib/domain/pdf-file-name";
 
 export function validateInvoiceDraftContent(
-  invoice: Invoice,
+  invoice: Pick<
+    Invoice,
+    | "issueDate"
+    | "transactionDate"
+    | "paymentDueDate"
+    | "lineItems"
+    | "unitPricesIncludeTax"
+    | "rounding"
+  > & { pdf: Pick<Invoice["pdf"], "fileNameOverride"> },
   taxCategories: readonly TaxCategory[],
 ): DomainValidationIssue[] {
   const issues: DomainValidationIssue[] = [];

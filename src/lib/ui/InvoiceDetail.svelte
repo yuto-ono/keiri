@@ -13,6 +13,7 @@
   } from "#lib/ui/read-api";
   import {
     createInvoiceDraftForm,
+    getSavedInvoiceFieldContext,
     deleteInvoicePayment,
     deleteSavedInvoice,
     hasInvoiceDraftChanges,
@@ -123,7 +124,7 @@
         if (result.ok)
           await goto(
             resolve(`/invoices?year=${saved.transactionDate.slice(0, 4)}`),
-            { invalidateAll: true },
+            { refreshAll: true },
           );
         else operationError = result.error;
       } finally {
@@ -146,9 +147,20 @@
       {saved.status === "draft" ? "下書き" : "発行済み"} / リビジョン {saved.revision}
     </p>
   </div>
-  <button type="button" disabled={busy} onclick={reload}
-    >最新データを読み直す</button
-  >
+  <div class="actions">
+    <a
+      class="button-link"
+      href={resolve("/invoices/[invoiceNumber]/duplicate", {
+        invoiceNumber: saved.invoiceNumber,
+      })}
+      aria-disabled={busy}
+      onclick={(event) => {
+        if (busy) event.preventDefault();
+      }}>複製する</a
+    ><button type="button" disabled={busy} onclick={reload}
+      >最新データを読み直す</button
+    >
+  </div>
 </header>
 {#if operationError}<InlineError error={operationError} focus={true} />{/if}
 {#if message}<p class="operation-message" role="status">{message}</p>{/if}
@@ -166,8 +178,7 @@
     <fieldset disabled={busy}>
       <InvoiceDraftFields
         bind:form
-        invoice={saved}
-        options={screen.editOptions}
+        context={getSavedInvoiceFieldContext(saved, screen.editOptions)}
         calculation={preview.ok ? preview.value.calculation : null}
       />
       <div class="panel content-panel">
@@ -216,6 +227,7 @@
     {#if dirty}<p>
         未保存の変更があります。発行する前に保存してください。
       </p>{/if}
+    {#if dirty}<p class="muted">複製には保存済みの内容を使います。</p>{/if}
     <div class="actions">
       <button
         type="button"

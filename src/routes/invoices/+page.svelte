@@ -17,7 +17,10 @@
   {@const result = data.invoices.value}
   <header class="page-header">
     <h1>請求書</h1>
-    <ReloadButton />
+    <div class="actions">
+      <a class="button-link primary" href={resolve("/invoices/new")}>新規作成</a
+      ><ReloadButton />
+    </div>
   </header>
   <label class="year-select"
     >取引年<select

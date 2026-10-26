@@ -7,6 +7,7 @@ import {
 import {
   getBusinessPartner,
   getInvoice,
+  getInvoiceCreationData,
   getInvoicePdf,
   getIssuer,
   getSettings,
@@ -78,6 +79,21 @@ export function handleGetInvoiceRequest(
       ? undefined
       : { ...detail, today: dependencies?.today ?? todayInTokyo() };
   }, `請求書 ${invoiceNumber} が存在しません。`);
+}
+
+export function handleGetInvoiceCreationDataRequest(
+  sourceInvoiceNumber?: string,
+  dependencies?: ReadApiDependencies,
+): Promise<Response> {
+  return handleJsonRead(async () => {
+    const context = await getInvoiceCreationData(
+      gatewayFor(dependencies),
+      sourceInvoiceNumber,
+    );
+    return context === undefined
+      ? undefined
+      : { ...context, today: dependencies?.today ?? todayInTokyo() };
+  }, `複製元の請求書 ${sourceInvoiceNumber} が存在しません。`);
 }
 
 export function handleListBusinessPartnersRequest(

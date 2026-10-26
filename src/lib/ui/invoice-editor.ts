@@ -31,7 +31,7 @@ export interface InvoiceDraftForm {
   issueDate: string;
   transactionDate: string;
   paymentDueDate: string;
-  honorific: Invoice["businessPartner"]["snapshot"]["honorific"];
+  honorific: Invoice["businessPartner"]["snapshot"]["honorific"] | "";
   unitPricesIncludeTax: boolean;
   lineItems: (Omit<
     InvoiceLineItem,
@@ -40,6 +40,29 @@ export interface InvoiceDraftForm {
   bankAccountIds: string[];
   notes: string;
   pdfFileNameOverride: string;
+}
+
+export interface InvoiceDraftFieldContext {
+  businessPartnerCode: string;
+  addressee: string;
+  issueMonth: string | null;
+  bankAccounts: readonly BankAccount[];
+  selectableBankAccountIds: readonly string[];
+  taxCategory: ApiReadResult<TaxableTaxCategory>;
+}
+
+export function getSavedInvoiceFieldContext(
+  invoice: Invoice,
+  options: InvoiceDetail["editOptions"],
+): InvoiceDraftFieldContext {
+  return {
+    businessPartnerCode: invoice.businessPartner.code,
+    addressee: invoice.businessPartner.snapshot.addressee,
+    issueMonth: invoice.issueDate.slice(0, 7),
+    bankAccounts: getBankAccountChoices(invoice, options.bankAccounts),
+    selectableBankAccountIds: options.bankAccounts.map((account) => account.id),
+    taxCategory: getEditingTaxCategory(invoice, options),
+  };
 }
 
 export function createInvoiceDraftForm(invoice: Invoice): InvoiceDraftForm {
@@ -112,6 +135,19 @@ export function prepareInvoiceDraftUpdate(
   form: InvoiceDraftForm,
   options: InvoiceDetail["editOptions"],
 ): ApiReadResult<{ invoice: Invoice; calculation: InvoiceCalculation }> {
+  if (form.honorific === "")
+    return {
+      ok: false,
+      error: {
+        message: "敬称を選択してください。",
+        issues: [
+          {
+            path: ["businessPartner", "snapshot", "honorific"],
+            message: "敬称は必須です。",
+          },
+        ],
+      },
+    };
   const tax = getEditingTaxCategory(invoice, options);
   if (form.lineItems.length > 0 && !tax.ok) return tax;
   const choices = getBankAccountChoices(invoice, options.bankAccounts);
