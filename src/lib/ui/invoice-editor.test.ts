@@ -19,6 +19,7 @@ import {
   revertSavedInvoice,
   saveInvoiceDraftForm,
   saveInvoicePayment,
+  selectInvoiceBankAccount,
 } from "./invoice-editor";
 
 function createHarness() {
@@ -34,6 +35,43 @@ function createHarness() {
 }
 
 describe("請求書編集フォーム", () => {
+  it("振込先の並べ替え後に選択を変更しても既存の表示順を保って保存する", async () => {
+    const { invoice, options, fetcher } = createHarness();
+    options.bankAccounts.push({ ...options.bankAccounts[0], id: "third" });
+    const form = createInvoiceDraftForm(invoice);
+    form.bankAccountIds = ["secondary", "primary"];
+    const reordered = [...form.bankAccountIds];
+    form.bankAccountIds = selectInvoiceBankAccount(
+      form.bankAccountIds,
+      "third",
+      true,
+    );
+    expect(form.bankAccountIds).toEqual(["secondary", "primary", "third"]);
+    form.bankAccountIds = selectInvoiceBankAccount(
+      form.bankAccountIds,
+      "primary",
+      false,
+    );
+    expect(form.bankAccountIds).toEqual(["secondary", "third"]);
+    form.bankAccountIds = selectInvoiceBankAccount(
+      form.bankAccountIds,
+      "primary",
+      true,
+    );
+    expect(
+      selectInvoiceBankAccount(form.bankAccountIds, "secondary", true),
+    ).toEqual(form.bankAccountIds);
+    expect(
+      (await saveInvoiceDraftForm(fetcher, invoice, form, options)).ok,
+    ).toBe(true);
+    const body = JSON.parse(fetcher.mock.calls[0][1]?.body as string);
+    expect(
+      body.issuer.snapshot.bankAccounts.map(
+        (account: { id: string }) => account.id,
+      ),
+    ).toEqual(["secondary", "third", "primary"]);
+    expect(reordered).toEqual(["secondary", "primary"]);
+  });
   it("保存済みデータから独立したフォームを作り、内容を戻すと未保存ではなくなる", () => {
     const { invoice } = createHarness();
     const form = createInvoiceDraftForm(invoice);

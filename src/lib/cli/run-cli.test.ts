@@ -7,6 +7,7 @@ import {
 import type { InvoicePdfRenderer } from "#lib/application/issue-invoice";
 import type { Invoice } from "../domain/model";
 import { serializeInvoice } from "../persistence/yaml-serializer";
+import { KeiriDataLoadError } from "#lib/server/keiri-data-loader";
 import { runCli, type CliDependencies, type CliIo } from "./run-cli";
 
 function createHarness(overrides: Partial<CliDependencies> = {}) {
@@ -303,6 +304,52 @@ describe("keiri CLI", () => {
     expect(harness.stderr()).toContain("取引先 MISSING が存在しません。");
   });
 
+  it("起動時の検証エラーをファイルごとの対象パスと理由付きで列挙する", async () => {
+    const saveNewInvoice = vi.fn();
+    const harness = createHarness({
+      createGateway: () => ({
+        loadCreationContext: async () => {
+          throw new KeiriDataLoadError([
+            {
+              filePath: "settings.yaml",
+              path: ["rounding", "taxAmount"],
+              message: "端数処理が不正です。",
+            },
+            {
+              filePath: "issuers/issuer.yaml",
+              path: [],
+              message: "3行2列: YAMLが不正です。",
+            },
+          ]);
+        },
+        saveNewInvoice,
+      }),
+    });
+    expect(
+      await runCli(
+        [
+          "node",
+          "keiri",
+          "invoice",
+          "create",
+          "ACME",
+          "--payment-due-date",
+          "2026-11-30",
+        ],
+        harness.dependencies,
+        harness.io,
+      ),
+    ).toBe(1);
+    expect(harness.stdout()).toBe("");
+    expect(harness.stderr()).toContain(
+      "- settings.yaml / rounding.taxAmount: 端数処理が不正です。",
+    );
+    expect(harness.stderr()).toContain(
+      "- issuers/issuer.yaml: 3行2列: YAMLが不正です。",
+    );
+    expect(saveNewInvoice).not.toHaveBeenCalled();
+  });
+
   it("日本語のヘルプを表示する", async () => {
     const harness = createHarness();
     const exitCode = await runCli(
@@ -432,6 +479,7 @@ describe("keiri CLI", () => {
     expect(harness.stderr()).toContain(
       "broken.yaml の読み込みに失敗しました。",
     );
+    expect(harness.stderr()).toMatch(/- broken\.yaml \/ \d+行 \d+列:/);
     expect(harness.savedInvoice()).toBeUndefined();
   });
 

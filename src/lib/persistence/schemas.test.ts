@@ -111,6 +111,26 @@ describe("永続化スキーマ", () => {
     expect(result.bankAccounts[0].accountNumber).toBe("1234567");
   });
 
+  it("省略可能な請求指示をnullとして読み、ほかの必須項目の省略は拒否する", () => {
+    const withoutInstructions = businessPartnerYaml.replace(
+      /^billingInstructions: \|-\n(?: {2}.*\n)*/m,
+      "",
+    );
+    const result = parseYaml(
+      withoutInstructions,
+      "business-partners/ACME.yaml",
+      businessPartnerSchema,
+    );
+    expect(result.billingInstructions).toBeNull();
+    expect(() =>
+      parseYaml(
+        withoutInstructions.replace("code: ACME\n", ""),
+        "business-partners/ACME.yaml",
+        businessPartnerSchema,
+      ),
+    ).toThrow(DataValidationError);
+  });
+
   it("仕様書の請求書例を受け入れる", () => {
     const result = parseYaml(
       invoiceYaml,

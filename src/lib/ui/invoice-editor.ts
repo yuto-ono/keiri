@@ -95,6 +95,18 @@ export function hasInvoiceDraftChanges(
   );
 }
 
+export function selectInvoiceBankAccount(
+  ids: readonly string[],
+  id: string,
+  selected: boolean,
+): string[] {
+  return selected
+    ? ids.includes(id)
+      ? [...ids]
+      : [...ids, id]
+    : ids.filter((candidate) => candidate !== id);
+}
+
 export function getEditingTaxCategory(
   invoice: Invoice,
   options: InvoiceDetail["editOptions"],

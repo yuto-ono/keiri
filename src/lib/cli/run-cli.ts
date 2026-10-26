@@ -90,7 +90,12 @@ export async function runCli(
       return 1;
     }
     if (error instanceof DataValidationError) {
-      writeValidationError(io.stderr, error.message, error.issues);
+      writeValidationError(
+        io.stderr,
+        error.message,
+        error.issues,
+        error.filePath,
+      );
       return 1;
     }
     if (error instanceof DataDirectoryConfigurationError) {
@@ -410,11 +415,25 @@ function translateCommanderError(error: CommanderError): string {
 function writeValidationError(
   output: CliOutput,
   message: string,
-  issues: readonly { path: readonly PropertyKey[]; message: string }[],
+  issues: readonly {
+    filePath?: string;
+    path: readonly PropertyKey[];
+    message: string;
+    line?: number;
+    column?: number;
+  }[],
+  filePath?: string,
 ): void {
   output.write(`${message}\n`);
   for (const issue of issues) {
-    const target = issue.path.length > 0 ? issue.path.join(".") : "全体";
+    const position =
+      issue.line === undefined
+        ? ""
+        : `${issue.line}行${issue.column === undefined ? "" : ` ${issue.column}列`}`;
+    const target =
+      [issue.filePath ?? filePath, issue.path.join("."), position]
+        .filter(Boolean)
+        .join(" / ") || "全体";
     output.write(`- ${target}: ${issue.message}\n`);
   }
 }

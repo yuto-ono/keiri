@@ -54,7 +54,7 @@ export const businessPartnerSchema = z.strictObject({
   addressee: nonEmptyString,
   honorific,
   requiresMonthlyInvoice: z.boolean(),
-  billingInstructions: nonEmptyString.nullable(),
+  billingInstructions: nonEmptyString.nullable().default(null),
   unitPricesIncludeTax: z.boolean(),
   issuerDisplay: z.strictObject({
     phone: z.boolean(),

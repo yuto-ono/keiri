@@ -2,6 +2,7 @@
   import type { InvoiceCalculation } from "#lib/domain/invoice-calculation";
   import { formatBusinessMonth } from "#lib/domain/business-date";
   import {
+    selectInvoiceBankAccount,
     type InvoiceDraftForm,
     type InvoiceDraftFieldContext,
   } from "#lib/ui/invoice-editor";
@@ -179,8 +180,13 @@
       <label class="checkbox-label"
         ><input
           type="checkbox"
-          value={account.id}
-          bind:group={form.bankAccountIds}
+          checked={form.bankAccountIds.includes(account.id)}
+          onchange={(event) =>
+            (form.bankAccountIds = selectInvoiceBankAccount(
+              form.bankAccountIds,
+              account.id,
+              event.currentTarget.checked,
+            ))}
           disabled={!context.selectableBankAccountIds.includes(account.id) &&
             !form.bankAccountIds.includes(account.id)}
         />{formatBankAccount(account)}</label
