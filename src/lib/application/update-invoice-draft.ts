@@ -110,7 +110,7 @@ function validateUpdate(
     immutableIssue(
       issues,
       ["businessPartner"],
-      "取引先と宛名本体のスナップショット",
+      "取引先情報のスナップショット",
     );
   }
   if (!sameIssuerIdentityAndContact(proposed, current)) {

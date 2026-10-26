@@ -43,7 +43,7 @@
       <dd>{context.businessPartnerCode || "未選択"}</dd>
     </div>
     <div>
-      <dt>宛名本体</dt>
+      <dt>取引先名</dt>
       <dd>{context.addressee || "未選択"}</dd>
     </div>
   </dl>

@@ -202,7 +202,7 @@
       {/if}
       <div class="form-grid">
         <label>
-          宛名本体
+          取引先名
           <input type="text" required bind:value={form.addressee} />
         </label>
         <label>
