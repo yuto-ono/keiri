@@ -29,7 +29,13 @@
           aria-current={page.url.pathname === resolve("/") ? "page" : undefined}
           >ダッシュボード</a
         >
-        <span role="link" aria-disabled="true">請求書</span>
+        <a
+          href={resolve("/invoices")}
+          aria-current={page.url.pathname === resolve("/invoices") ||
+          page.url.pathname.startsWith(`${resolve("/invoices")}/`)
+            ? "page"
+            : undefined}>請求書</a
+        >
         <span role="link" aria-disabled="true">取引先</span>
         <span role="link" aria-disabled="true">設定</span>
       </nav>

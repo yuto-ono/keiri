@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
   import type { PageProps } from "./$types";
   import {
     formatBusinessDate,
@@ -71,7 +72,7 @@
         </p>
       {:else}
         <div class="table-scroll">
-          <table>
+          <table class="data-table">
             <thead
               ><tr
                 ><th scope="col">支払期限</th><th scope="col">請求書番号</th><th
@@ -81,13 +82,23 @@
             >
             <tbody>
               {#each dashboard.overdueInvoices as invoice (invoice.invoiceNumber)}
-                <tr>
+                <tr class="linked-row">
                   <td
                     ><time datetime={invoice.paymentDueDate}
                       >{formatBusinessDate(invoice.paymentDueDate)}</time
                     ></td
                   >
-                  <td>{invoice.invoiceNumber}</td>
+                  <td
+                    ><a
+                      href={resolve("/invoices/[invoiceNumber]", {
+                        invoiceNumber: invoice.invoiceNumber,
+                      })}
+                      >{invoice.invoiceNumber}<span
+                        class="row-link"
+                        aria-hidden="true"
+                      ></span></a
+                    ></td
+                  >
                   <td class="addressee">{invoice.addresseeWithHonorific}</td>
                   <td class="amount">{formatYen(invoice.totalAmount)}</td>
                 </tr>
@@ -103,18 +114,6 @@
 {/if}
 
 <style>
-  .page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 2.5rem;
-  }
-  .page-header p {
-    margin: 0.5rem 0 0;
-    font-size: 0.875rem;
-  }
   .monthly-records {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -187,39 +186,10 @@
     padding: 2rem 1.5rem;
     color: var(--text-muted);
   }
-  .table-scroll {
-    overflow-x: auto;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 0.875rem;
-  }
-  th,
-  td {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-  }
-  th {
-    font-weight: 500;
-    color: var(--text-muted);
-    background: #fafbfc;
-  }
-  td {
-    white-space: nowrap;
-  }
   td.addressee {
     min-width: 10rem;
     white-space: normal;
     overflow-wrap: anywhere;
-  }
-  .amount {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-  tbody tr:last-child td {
-    border-bottom: 0;
   }
   @media (max-width: 70rem) {
     .monthly-records {

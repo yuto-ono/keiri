@@ -72,10 +72,12 @@ export function handleGetInvoiceRequest(
   invoiceNumber: string,
   dependencies?: ReadApiDependencies,
 ): Promise<Response> {
-  return handleJsonRead(
-    () => getInvoice(gatewayFor(dependencies), invoiceNumber),
-    `請求書 ${invoiceNumber} が存在しません。`,
-  );
+  return handleJsonRead(async () => {
+    const detail = await getInvoice(gatewayFor(dependencies), invoiceNumber);
+    return detail === undefined
+      ? undefined
+      : { ...detail, today: dependencies?.today ?? todayInTokyo() };
+  }, `請求書 ${invoiceNumber} が存在しません。`);
 }
 
 export function handleListBusinessPartnersRequest(

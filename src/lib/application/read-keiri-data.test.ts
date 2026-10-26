@@ -121,7 +121,7 @@ describe("画面向けのデータ取得", () => {
       },
     ];
     const result = await getInvoice(harness.gateway, "ACME-202610-01");
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       invoice: harness.data.invoices[0],
       taxCategory: harness.data.taxCategories[0],
       calculation: {
@@ -151,6 +151,21 @@ describe("画面向けのデータ取得", () => {
       (await listInvoices(harness.gateway, { today: "2026-10-25" })).months[0]
         .invoices[0].totalAmount,
     ).toBe("0");
+  });
+
+  it("詳細の編集候補には現在の振込先と税定義を渡し、保存済み情報を置き換えない", async () => {
+    const harness = createHarness();
+    harness.data.issuers[0].bankAccounts[0].bankName = "現在の銀行名";
+    const result = await getInvoice(harness.gateway, "ACME-202610-01");
+    expect(result?.editOptions.bankAccounts).toEqual(
+      harness.data.issuers[0].bankAccounts,
+    );
+    expect(result?.editOptions.taxCategories).toEqual(
+      harness.data.taxCategories,
+    );
+    expect(result?.invoice.issuer.snapshot.bankAccounts[0].bankName).toBe(
+      "銀行1",
+    );
   });
 
   it("参照した税区分がなければ他の区分へ読み替えない", async () => {

@@ -34,6 +34,12 @@ export async function readJsonApi<T>(
       },
     };
   }
+  return decodeJsonApiResponse<T>(response);
+}
+
+export async function decodeJsonApiResponse<T>(
+  response: Response,
+): Promise<ApiReadResult<T>> {
   let body: unknown;
   try {
     body = await response.json();

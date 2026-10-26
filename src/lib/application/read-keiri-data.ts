@@ -106,8 +106,19 @@ export async function getInvoice(
   );
   return invoice === undefined
     ? undefined
-    : { invoice, ...resolveInvoiceAmounts(invoice, data.taxCategories) };
+    : {
+        invoice,
+        ...resolveInvoiceAmounts(invoice, data.taxCategories),
+        editOptions: {
+          bankAccounts:
+            data.issuers.find((issuer) => issuer.id === invoice.issuer.id)
+              ?.bankAccounts ?? [],
+          taxCategories: data.taxCategories,
+        },
+      };
 }
+
+export type InvoiceDetail = NonNullable<Awaited<ReturnType<typeof getInvoice>>>;
 
 export async function listBusinessPartners(gateway: KeiriReadGateway) {
   const data = await gateway.loadData();
