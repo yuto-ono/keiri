@@ -43,7 +43,12 @@
             ? "page"
             : undefined}>取引先</a
         >
-        <span role="link" aria-disabled="true">設定</span>
+        <a
+          href={resolve("/settings")}
+          aria-current={page.url.pathname === resolve("/settings")
+            ? "page"
+            : undefined}>設定</a
+        >
       </nav>
     </aside>
     <main id="main-content" tabindex="-1">{@render children()}</main>
@@ -66,14 +71,11 @@
     gap: 0.375rem;
     margin-top: 2.5rem;
   }
-  nav :is(a, span) {
+  nav a {
     color: var(--text-muted);
     padding: 0.75rem 1rem;
     border-radius: 0.375rem;
     text-decoration: none;
-  }
-  nav [aria-disabled="true"] {
-    opacity: 0.6;
   }
   nav a:hover {
     background: var(--background);
@@ -133,7 +135,7 @@
       margin-top: 1rem;
       gap: 0.25rem;
     }
-    nav :is(a, span) {
+    nav a {
       padding: 0.625rem 0.75rem;
     }
     .brand {

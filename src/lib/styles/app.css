@@ -142,7 +142,7 @@ label {
   gap: 0.5rem;
   font-size: 0.875rem;
 }
-input:not([type="checkbox"]),
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   width: 100%;
