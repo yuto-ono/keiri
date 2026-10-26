@@ -51,12 +51,16 @@ function handle(
   harness: ReturnType<typeof createHarness>,
   body?: string,
   origin: string | null = url.origin,
+  fetchSite?: string,
 ) {
   const headers: Record<string, string> = {
     "content-type": "application/json",
   };
   if (origin !== null) {
     headers.origin = origin;
+  }
+  if (fetchSite !== undefined) {
+    headers["sec-fetch-site"] = fetchSite;
   }
   const request = new Request(url, {
     method,
@@ -111,6 +115,20 @@ describe("取引先管理API", () => {
         },
       },
     });
+    expect(harness.saved).toHaveBeenCalledOnce();
+  });
+
+  it("リバースプロキシ経由のsame-origin POSTを受け付ける", async () => {
+    const harness = createHarness();
+    const response = await handle(
+      "POST",
+      harness,
+      undefined,
+      "http://keiri.localhost:3650",
+      "same-origin",
+    );
+
+    expect(response.status).toBe(201);
     expect(harness.saved).toHaveBeenCalledOnce();
   });
 

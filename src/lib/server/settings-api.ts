@@ -8,13 +8,14 @@ import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { settingsSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "#lib/server/data-directory";
 import { KeiriDataLoadError } from "#lib/server/keiri-data-loader";
+import { isSameOriginWriteRequest } from "#lib/server/same-origin";
 
 export async function handleUpdateSettingsRequest(
   request: Request,
   url: URL,
   dependencies: { gateway: SettingsUpdateGateway },
 ): Promise<Response> {
-  if (request.headers.get("origin") !== url.origin) {
+  if (!isSameOriginWriteRequest(request, url)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },

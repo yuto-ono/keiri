@@ -27,6 +27,7 @@ import {
 import { invoiceLineItemSchema, invoiceSchema } from "#lib/persistence/schemas";
 import { DataDirectoryConfigurationError } from "./data-directory";
 import { KeiriDataLoadError } from "./keiri-data-loader";
+import { isSameOriginWriteRequest } from "./same-origin";
 
 const invoiceDraftFormRequestSchema = z.strictObject({
   businessPartnerCode: z.string().min(1),
@@ -82,7 +83,7 @@ export async function handleCreateInvoiceRequest(
   requestUrl: URL,
   dependencies: CreateInvoiceApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
@@ -145,7 +146,7 @@ export async function handleUpdateInvoiceRequest(
   invoiceNumber: string,
   dependencies: UpdateInvoiceApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
@@ -209,7 +210,7 @@ export async function handleDuplicateInvoiceRequest(
   sourceInvoiceNumber: string,
   dependencies: DuplicateInvoiceApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
@@ -273,7 +274,7 @@ export async function handleIssueInvoiceRequest(
   invoiceNumber: string,
   dependencies: IssueInvoiceApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
@@ -341,7 +342,7 @@ export async function handleRevertInvoiceToDraftRequest(
   invoiceNumber: string,
   dependencies: RevertInvoiceToDraftApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
@@ -404,7 +405,7 @@ export async function handleDeleteInvoiceRequest(
   invoiceNumber: string,
   dependencies: DeleteInvoiceApiDependencies,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },

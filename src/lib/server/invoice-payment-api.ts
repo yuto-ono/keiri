@@ -10,6 +10,7 @@ import {
 import { DomainValidationError } from "#lib/domain/domain-validation-error";
 import { DataDirectoryConfigurationError } from "#lib/server/data-directory";
 import { KeiriDataLoadError } from "#lib/server/keiri-data-loader";
+import { isSameOriginWriteRequest } from "#lib/server/same-origin";
 
 const revisionRequestSchema = z.strictObject({
   revision: z
@@ -72,7 +73,7 @@ async function handlePaymentRequest<T>(
   schema: z.ZodType<T>,
   execute: (input: T) => Promise<InvoicePaymentResult>,
 ): Promise<Response> {
-  if (request.headers.get("origin") !== requestUrl.origin) {
+  if (!isSameOriginWriteRequest(request, requestUrl)) {
     return json(
       { message: "同一オリジン以外からの書き込みは受け付けません。" },
       { status: 403 },
