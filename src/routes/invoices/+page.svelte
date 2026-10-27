@@ -77,16 +77,26 @@
                   </time>
                 </td>
                 <td class="amount">{formatYen(invoice.totalAmount)}</td>
-                <td>{invoice.status === "draft" ? "下書き" : "発行済み"}</td>
+                <td>
+                  <span
+                    class="status-badge"
+                    class:status-badge-issued={invoice.status === "issued"}
+                  >
+                    {invoice.status === "draft" ? "下書き" : "発行済み"}
+                  </span>
+                </td>
                 <td>
                   {#if invoice.status === "draft"}
-                    —
+                    <span class="muted">—</span>
                   {:else if invoice.paymentCompletedDate}
-                    <time datetime={invoice.paymentCompletedDate}>
+                    <time
+                      class="status-badge status-badge-paid"
+                      datetime={invoice.paymentCompletedDate}
+                    >
                       {formatBusinessDate(invoice.paymentCompletedDate)}
                     </time>
                   {:else}
-                    入金未確認
+                    <span class="status-badge">入金未確認</span>
                   {/if}
                 </td>
               </tr>

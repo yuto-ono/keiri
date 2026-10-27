@@ -144,7 +144,13 @@
   <div>
     <h1 bind:this={heading} tabindex="-1">{saved.invoiceNumber}</h1>
     <p class="muted">
-      {saved.status === "draft" ? "下書き" : "発行済み"} / リビジョン {saved.revision}
+      <span
+        class="status-badge"
+        class:status-badge-issued={saved.status === "issued"}
+      >
+        {saved.status === "draft" ? "下書き" : "発行済み"}
+      </span>
+      / リビジョン {saved.revision}
     </p>
   </div>
   <div class="actions">
@@ -339,9 +345,18 @@
   <section class="panel content-panel" aria-labelledby="payment-heading">
     <h2 id="payment-heading">入金管理</h2>
     <p>
-      {saved.paymentCompletedDate === null
-        ? "入金未確認"
-        : `入金確認済み：${formatBusinessDate(saved.paymentCompletedDate)}`}
+      <span
+        class="status-badge"
+        class:status-badge-paid={saved.paymentCompletedDate !== null}
+      >
+        {#if saved.paymentCompletedDate === null}
+          入金未確認
+        {:else}
+          入金確認済み：<time datetime={saved.paymentCompletedDate}>
+            {formatBusinessDate(saved.paymentCompletedDate)}
+          </time>
+        {/if}
+      </span>
     </p>
     <form
       onsubmit={(event) => {
