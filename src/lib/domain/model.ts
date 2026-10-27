@@ -118,8 +118,7 @@ export interface Invoice {
       bankAccounts: BankAccount[];
     };
   };
-  issueDate: string;
-  transactionDate: string;
+  invoiceDate: string;
   paymentDueDate: string;
   paymentCompletedDate: string | null;
   unitPricesIncludeTax: boolean;

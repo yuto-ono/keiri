@@ -77,7 +77,7 @@ describe("取引先管理", () => {
           bankAccountIds: ["primary"],
         },
         pdfFileNamePattern:
-          "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+          "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
       },
       filePath: "business-partners/NewCo.yaml",
     });

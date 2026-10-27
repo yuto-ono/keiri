@@ -87,8 +87,7 @@ describe("ダッシュボードのデータ取得", () => {
       }),
       issued("2025-12-31", {
         invoiceNumber: "OLD",
-        transactionDate: "2025-12-01",
-        issueDate: "2025-12-01",
+        invoiceDate: "2025-12-01",
       }),
     ];
     const before = structuredClone(harness.data);

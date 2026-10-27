@@ -3,7 +3,7 @@ import type { BusinessPartner, Issuer } from "#lib/domain/model";
 import { validatePdfFileNamePattern } from "#lib/domain/pdf-file-name";
 
 export const DEFAULT_PDF_FILE_NAME_PATTERN =
-  "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}";
+  "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}";
 
 export function validateBusinessPartnerDetails(
   partner: BusinessPartner,

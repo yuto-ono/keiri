@@ -23,7 +23,7 @@ const businessPartner: BusinessPartner = {
     email: false,
     bankAccountIds: ["primary"],
   },
-  pdfFileNamePattern: "{addresseeWithHonorific}-{issueDate:YYYYMM}-{sequence}",
+  pdfFileNamePattern: "{addresseeWithHonorific}-{invoiceDate:YYYYMM}-{sequence}",
 };
 
 const taxCategories: TaxCategory[] = [
@@ -66,8 +66,7 @@ function createInvoice(overrides: Partial<Invoice> = {}): Invoice {
         ],
       },
     },
-    issueDate: "2026-10-20",
-    transactionDate: "2026-10-20",
+    invoiceDate: "2026-10-20",
     paymentDueDate: "2026-11-30",
     paymentCompletedDate: null,
     unitPricesIncludeTax: false,
@@ -120,7 +119,6 @@ describe("請求書の発行", () => {
     const result = await issueInvoice(harness.gateway, harness.renderer, {
       invoiceNumber: "ACME-202610-07",
       expectedRevision: 3,
-      today: "2026-10-25",
     });
 
     expect(result.invoice).toMatchObject({
@@ -169,7 +167,6 @@ describe("請求書の発行", () => {
     const result = await issueInvoice(harness.gateway, harness.renderer, {
       invoiceNumber: invoice.invoiceNumber,
       expectedRevision: invoice.revision,
-      today: "2026-10-25",
     });
 
     expect(result.invoice.pdf.issuedFileName).toBe("個別の請求書.pdf");
@@ -177,8 +174,8 @@ describe("請求書の発行", () => {
 
   it("発行条件と期待リビジョンの問題をまとめて返し副作用を起こさない", async () => {
     const invoice = createInvoice({
-      issueDate: "2026-10-26",
-      paymentDueDate: "2026-10-19",
+      invoiceDate: "2026-02-30",
+      paymentDueDate: "不正な日付",
       lineItems: [],
       issuer: {
         ...createInvoice().issuer,
@@ -197,13 +194,12 @@ describe("請求書の発行", () => {
     const error = await issueInvoice(harness.gateway, harness.renderer, {
       invoiceNumber: invoice.invoiceNumber,
       expectedRevision: 2,
-      today: "2026-10-25",
     }).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(DomainValidationError);
     expect((error as DomainValidationError).issues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: ["issueDate"] }),
+        expect.objectContaining({ path: ["invoiceDate"] }),
         expect.objectContaining({ path: ["paymentDueDate"] }),
         expect.objectContaining({ path: ["lineItems"] }),
         expect.objectContaining({
@@ -231,7 +227,6 @@ describe("請求書の発行", () => {
       issueInvoice(harness.gateway, harness.renderer, {
         invoiceNumber: invoice.invoiceNumber,
         expectedRevision: invoice.revision,
-        today: "2026-10-25",
       }),
     ).rejects.toBeInstanceOf(DomainValidationError);
     expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
@@ -249,7 +244,6 @@ describe("請求書の発行", () => {
       issueInvoice(harness.gateway, harness.renderer, {
         invoiceNumber: "MISSING-202610-01",
         expectedRevision: 1,
-        today: "2026-10-25",
       }),
     ).rejects.toBeInstanceOf(DomainValidationError);
     expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
@@ -266,7 +260,6 @@ describe("請求書の発行", () => {
       issueInvoice(harness.gateway, harness.renderer, {
         invoiceNumber: "ACME-202610-07",
         expectedRevision: 3,
-        today: "2026-10-25",
       }),
     ).rejects.toThrow("フォントを読み込めません。");
     expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();

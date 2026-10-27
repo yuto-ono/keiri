@@ -71,10 +71,6 @@ export function buildInvoicePdfHtml(
         </div>`,
     )
     .join("");
-  const transactionDate =
-    invoice.transactionDate === invoice.issueDate
-      ? ""
-      : `<div><dt>取引日</dt><dd>${formatBusinessDate(invoice.transactionDate)}</dd></div>`;
   const notes =
     invoice.notes === null
       ? ""
@@ -339,8 +335,7 @@ export function buildInvoicePdfHtml(
       <header class="document-header">
         <h1>請求書</h1>
         <dl class="document-meta">
-          <div><dt>発行日</dt><dd>${formatBusinessDate(invoice.issueDate)}</dd></div>
-          ${transactionDate}
+          <div><dt>請求日</dt><dd>${formatBusinessDate(invoice.invoiceDate)}</dd></div>
           <div><dt>請求書番号</dt><dd>${escapeHtml(invoice.invoiceNumber)}</dd></div>
         </dl>
       </header>

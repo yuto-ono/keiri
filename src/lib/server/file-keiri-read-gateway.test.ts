@@ -32,8 +32,8 @@ let dataRoot: string;
 const fileName = "日本語の請求書 '特別'(1).pdf";
 const issued = {
   ...createInvoiceForPartner(createPartner(), "issued"),
-  invoiceNumber: "ACME-202610-02",
-  transactionDate: "2025-12-31",
+  invoiceNumber: "ACME-202512-02",
+  invoiceDate: "2025-12-31",
   pdf: { fileNameOverride: null, issuedFileName: fileName },
 };
 const pdfPath = `documents/2025/sales/invoices/ACME/${fileName}`;
@@ -61,7 +61,7 @@ beforeEach(async () => {
     `# 読み取りでは書式を変えない\n${serializeInvoice(createInvoiceForPartner())}`,
   );
   await writeFile(
-    join(dataRoot, "sales/invoices/2025/ACME-202610-02.yaml"),
+    join(dataRoot, "sales/invoices/2025/ACME-202512-02.yaml"),
     serializeInvoice(issued),
   );
   await writeFile(join(dataRoot, pdfPath), originalPdf);
@@ -82,7 +82,7 @@ describe("ファイルシステムを使う読み取り", () => {
       "issuers/issuer.yaml",
       "business-partners/ACME.yaml",
       "sales/invoices/2026/ACME-202610-01.yaml",
-      "sales/invoices/2025/ACME-202610-02.yaml",
+      "sales/invoices/2025/ACME-202512-02.yaml",
       pdfPath,
       "documents/2025/sales/invoices/ACME/管理外.pdf",
     ];
@@ -105,7 +105,7 @@ describe("ファイルシステムを使う読み取り", () => {
     }
   });
 
-  it("取引年と記録済みファイル名でPDFを読み、内容の再検査や管理外PDFの配信をしない", async () => {
+  it("請求年と記録済みファイル名でPDFを読み、内容の再検査や管理外PDFの配信をしない", async () => {
     const gateway = new FileKeiriReadGateway(dataRoot);
     expect(await getInvoicePdf(gateway, issued.invoiceNumber)).toEqual({
       fileName,
@@ -138,7 +138,7 @@ describe("ファイルシステムを使う読み取り", () => {
     ).rejects.toMatchObject({
       issues: [
         expect.objectContaining({
-          filePath: "sales/invoices/2025/ACME-202610-02.yaml",
+          filePath: "sales/invoices/2025/ACME-202512-02.yaml",
           path: ["pdf", "issuedFileName"],
         }),
       ],

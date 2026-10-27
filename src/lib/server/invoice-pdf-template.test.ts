@@ -37,8 +37,7 @@ function createInput(): InvoicePdfRenderInput {
           ],
         },
       },
-      issueDate: "2026-10-20",
-      transactionDate: "2026-09-30",
+      invoiceDate: "2026-10-20",
       paymentDueDate: "2026-11-30",
       paymentCompletedDate: null,
       unitPricesIncludeTax: false,
@@ -86,19 +85,20 @@ describe("請求書PDFのHTML", () => {
     expect(html).toContain("山田 &amp; 太郎");
     expect(html).toContain("開発 &lt;保守&gt; &amp; 運用");
     expect(html).not.toContain("株式会社サンプル <営業部>");
-    expect(html).toContain("<dt>取引日</dt><dd>2026年09月30日</dd>");
+    expect(html).toContain("<dt>請求日</dt><dd>2026年10月20日</dd>");
     expect(html).toContain("登録番号: T1234567890123");
     expect(html).toContain("<strong>¥ 27,500 -</strong>");
     expect(html).toContain("2.5 時間");
     expect(html).toContain("white-space: pre-wrap");
   });
 
-  it("発行日と取引日が同じ場合は取引日を重複表示しない", () => {
+  it("日付は請求日だけを1回表示する", () => {
     const input = createInput();
-    input.invoice.transactionDate = input.invoice.issueDate;
 
     const html = buildInvoicePdfHtml(input, "data:font/ttf;base64,Zm9udA==");
 
+    expect(html.match(/<dt>請求日<\/dt>/g)).toHaveLength(1);
+    expect(html).not.toContain("<dt>発行日</dt>");
     expect(html).not.toContain("<dt>取引日</dt>");
   });
 

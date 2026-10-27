@@ -40,13 +40,12 @@ async function screen(duplicate = false): Promise<InvoiceCreationScreenData> {
 }
 
 describe("新規作成・複製の未保存フォーム", () => {
-  it("取引先を自動選択せず、発行日・取引日を初期化し、支払期限は空欄にする", async () => {
+  it("取引先を自動選択せず、請求日を初期化し、支払期限は空欄にする", async () => {
     const context = await screen();
     const form = createUnsavedInvoiceForm(context);
     expect(form).toMatchObject({
       businessPartnerCode: "",
-      issueDate: "2026-01-01",
-      transactionDate: "2026-01-01",
+      invoiceDate: "2026-01-01",
       paymentDueDate: "",
       honorific: "",
       bankAccountIds: [],
@@ -57,7 +56,7 @@ describe("新規作成・複製の未保存フォーム", () => {
     expect(form).not.toHaveProperty("invoiceNumber");
     expect(form).not.toHaveProperty("revision");
     expect(getUnsavedInvoiceFieldContext(form, context)).toMatchObject({
-      issueMonth: null,
+      invoiceMonth: null,
       businessPartnerCode: "",
       taxCategory: { ok: true, value: { id: "standard-10" } },
     });
@@ -66,7 +65,7 @@ describe("新規作成・複製の未保存フォーム", () => {
     const context = await screen(true);
     const initial = createUnsavedInvoiceForm(context);
     initial.paymentDueDate = "2026-02-28";
-    initial.issueDate = "2026-02-01";
+    initial.invoiceDate = "2026-02-01";
     initial.pdfFileNameOverride = "入力した個別名";
     const form = changeUnsavedInvoicePartner(initial, "OTHER", context);
     expect(form).toMatchObject({
@@ -74,8 +73,7 @@ describe("新規作成・複製の未保存フォーム", () => {
       honorific: "様",
       unitPricesIncludeTax: true,
       bankAccountIds: ["secondary", "primary"],
-      issueDate: "2026-02-01",
-      transactionDate: "2026-01-01",
+      invoiceDate: "2026-02-01",
       paymentDueDate: "2026-02-28",
       notes: "複製する備考",
       pdfFileNameOverride: "入力した個別名",
@@ -98,8 +96,7 @@ describe("新規作成・複製の未保存フォーム", () => {
       businessPartnerCode: "ACME",
       honorific: "様",
       unitPricesIncludeTax: false,
-      issueDate: context.today,
-      transactionDate: context.today,
+      invoiceDate: context.today,
       paymentDueDate: "",
       notes: "複製する備考",
       pdfFileNameOverride: "",
@@ -123,8 +120,7 @@ describe("新規作成・複製の未保存フォーム", () => {
       const context = await screen(duplicate);
       let form = createUnsavedInvoiceForm(context);
       form = changeUnsavedInvoicePartner(form, "OTHER", context);
-      form.issueDate = "2026-02-01";
-      form.transactionDate = "2025-12-31";
+      form.invoiceDate = "2026-02-01";
       form.paymentDueDate = "2026-02-28";
       form.lineItems = [
         { name: "業務", quantity: 2.5, unit: "時間", unitPrice: 10000 },
@@ -148,10 +144,9 @@ describe("新規作成・複製の未保存フォーム", () => {
       expect(init?.method).toBe("POST");
       expect(JSON.parse(init?.body as string)).toEqual({
         businessPartnerCode: "OTHER",
-        issueDate: "2026-02-01",
+        invoiceDate: "2026-02-01",
         paymentDueDate: "2026-02-28",
         content: {
-          transactionDate: "2025-12-31",
           honorific: "様",
           unitPricesIncludeTax: true,
           bankAccountIds: ["secondary", "primary"],

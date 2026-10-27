@@ -25,7 +25,7 @@ function createContext(): InvoiceCreationContext {
           bankAccountIds: ["secondary", "primary"],
         },
         pdfFileNamePattern:
-          "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+          "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
       },
     ],
     issuers: [
@@ -86,7 +86,7 @@ function createGateway(context: InvoiceCreationContext) {
     async saveNewInvoice(invoice) {
       savedInvoice = invoice;
       return {
-        filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+        filePath: `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
       };
     },
   };
@@ -107,8 +107,7 @@ describe("請求書下書きの新規作成", () => {
       revision: 1,
       status: "draft",
       invoiceNumber: "ACME-202610-01",
-      issueDate: "2026-10-25",
-      transactionDate: "2026-10-25",
+      invoiceDate: "2026-10-25",
       paymentDueDate: "2026-11-30",
       paymentCompletedDate: null,
       unitPricesIncludeTax: false,
@@ -132,16 +131,15 @@ describe("請求書下書きの新規作成", () => {
     expect(getSavedInvoice()).toBe(result.invoice);
   });
 
-  it("指定した発行日を発行日と取引日の初期値にする", async () => {
+  it("指定した請求日から採番する", async () => {
     const { gateway } = createGateway(createContext());
     const result = await createInvoiceDraft(gateway, {
       businessPartnerCode: "ACME",
       paymentDueDate: "2027-01-31",
-      issueDate: "2026-12-01",
+      invoiceDate: "2026-12-01",
       today: "2026-10-25",
     });
-    expect(result.invoice.issueDate).toBe("2026-12-01");
-    expect(result.invoice.transactionDate).toBe("2026-12-01");
+    expect(result.invoice.invoiceDate).toBe("2026-12-01");
     expect(result.invoice.invoiceNumber).toBe("ACME-202612-01");
   });
 
@@ -186,7 +184,7 @@ describe("請求書下書きの新規作成", () => {
     expect(result.invoice.invoiceNumber).toBe("ACME-202610-02");
   });
 
-  it("支払期限が発行日より前でも下書きとして保存できる", async () => {
+  it("支払期限が請求日より前でも下書きとして保存できる", async () => {
     const { gateway } = createGateway(createContext());
     await expect(
       createInvoiceDraft(gateway, {
@@ -236,7 +234,7 @@ describe("請求書下書きの新規作成", () => {
       await createInvoiceDraft(gateway, {
         businessPartnerCode: "ACME",
         paymentDueDate: "2026-02-29",
-        issueDate: "2026-13-01",
+        invoiceDate: "2026-13-01",
         today: "invalid",
       });
       expect.fail("DomainValidationError が必要です");

@@ -100,7 +100,7 @@ function invoicePath(invoice: Invoice): string {
   return [
     "sales",
     "invoices",
-    invoice.transactionDate.slice(0, 4),
+    invoice.invoiceDate.slice(0, 4),
     `${invoice.invoiceNumber}.yaml`,
   ].join("/");
 }
@@ -108,7 +108,7 @@ function invoicePath(invoice: Invoice): string {
 function issuedPdfPath(invoice: Invoice, fileName: string): string {
   return [
     "documents",
-    invoice.transactionDate.slice(0, 4),
+    invoice.invoiceDate.slice(0, 4),
     "sales",
     "invoices",
     invoice.businessPartner.code,

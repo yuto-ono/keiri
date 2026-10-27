@@ -5,7 +5,6 @@ export function createInvoiceDraftFormContent(
   overrides: Partial<InvoiceDraftFormContent> = {},
 ): InvoiceDraftFormContent {
   return {
-    transactionDate: "2026-10-25",
     honorific: "御中",
     unitPricesIncludeTax: false,
     bankAccountIds: ["primary"],

@@ -39,7 +39,7 @@ issuerDisplay:
   email: false
   bankAccountIds:
     - primary
-pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}"
+pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}"
 ```
 
 `issuerDisplay.bankAccountIds` には発行者YAMLに存在する振込先IDを、PDFへ表示する順に1件以上指定します。電話番号またはメールアドレスを表示する場合は、発行者YAMLにも対応する値が必要です。
@@ -48,6 +48,6 @@ pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}"
 
 keiriが生成・更新する構造化データは、取引先、発行者、税区分、設定および請求書のYAMLです。月次請求Markdownは、人間またはLLMが直接編集します。
 
-`documents/<取引年>/sales/invoices/<取引先コード>/` のうち、keiriが管理するのは、keiri自身が生成し、発行済み請求書YAMLから参照されているPDFだけです。参照されていないPDFや、そのほかの手動追加書類をkeiriが変更・移動・削除することはありません。
+`documents/<請求年>/sales/invoices/<取引先コード>/` のうち、keiriが管理するのは、keiri自身が生成し、発行済み請求書YAMLから参照されているPDFだけです。参照されていないPDFや、そのほかの手動追加書類をkeiriが変更・移動・削除することはありません。
 
 keiriはこのリポジトリに対するcommitやpushを行いません。変更内容を確認したうえで、利用者がGit操作を行います。

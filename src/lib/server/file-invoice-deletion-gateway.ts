@@ -20,7 +20,7 @@ export class FileInvoiceDeletionGateway implements InvoiceDeletionGateway {
   }
 
   async deleteInvoice(invoice: Invoice): Promise<{ filePath: string }> {
-    const filePath = `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`;
+    const filePath = `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`;
     await unlink(resolve(this.#rootDirectory, filePath));
     return { filePath };
   }

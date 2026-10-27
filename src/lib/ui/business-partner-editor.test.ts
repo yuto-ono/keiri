@@ -65,7 +65,7 @@ describe("取引先フォーム", () => {
       showEmail: false,
       bankAccountIds: ["secondary"],
       billingInstructions: "",
-      pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+      pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
     });
     expect(form).not.toHaveProperty("revision");
     expect(

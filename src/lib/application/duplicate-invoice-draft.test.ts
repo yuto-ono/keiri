@@ -27,8 +27,7 @@ function createSourceInvoice(status: Invoice["status"] = "issued"): Invoice {
         bankAccounts: [],
       },
     },
-    issueDate: "2026-09-01",
-    transactionDate: "2026-09-01",
+    invoiceDate: "2026-09-01",
     paymentDueDate: "2026-09-30",
     paymentCompletedDate: status === "issued" ? "2026-10-15" : null,
     unitPricesIncludeTax: true,
@@ -67,7 +66,7 @@ function createContext(source = createSourceInvoice()): InvoiceCreationContext {
           bankAccountIds: ["primary"],
         },
         pdfFileNamePattern:
-          "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+          "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
       },
       {
         revision: 1,
@@ -83,7 +82,7 @@ function createContext(source = createSourceInvoice()): InvoiceCreationContext {
           bankAccountIds: ["secondary"],
         },
         pdfFileNamePattern:
-          "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+          "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
       },
     ],
     issuers: [
@@ -144,7 +143,7 @@ function createGateway(context: InvoiceCreationContext) {
     async saveNewInvoice(invoice) {
       savedInvoice = invoice;
       return {
-        filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+        filePath: `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
       };
     },
   };
@@ -166,8 +165,7 @@ describe("請求書の複製", () => {
       revision: 1,
       status: "draft",
       invoiceNumber: "SOURCE-202610-01",
-      issueDate: "2026-10-25",
-      transactionDate: "2026-10-25",
+      invoiceDate: "2026-10-25",
       paymentDueDate: "2026-11-30",
       paymentCompletedDate: null,
       unitPricesIncludeTax: false,
@@ -191,14 +189,14 @@ describe("請求書の複製", () => {
     expect(source).toEqual(createSourceInvoice());
   });
 
-  it("指定した取引先、発行日、支払期限から新しい値を作る", async () => {
+  it("指定した取引先、請求日、支払期限から新しい値を作る", async () => {
     const source = createSourceInvoice("draft");
     const harness = createGateway(createContext(source));
     const result = await duplicateInvoiceDraft(harness.gateway, {
       sourceInvoiceNumber: source.invoiceNumber,
       businessPartnerCode: "OTHER",
       paymentDueDate: "2027-01-31",
-      issueDate: "2026-12-01",
+      invoiceDate: "2026-12-01",
       today: "2026-10-25",
     });
 

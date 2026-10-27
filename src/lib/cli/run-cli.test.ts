@@ -25,7 +25,7 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
   const deleteInvoice = vi.fn(async (invoice: Invoice) => {
     savedInvoice = undefined;
     return {
-      filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+      filePath: `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
     };
   });
   const renderSinglePagePdf = vi.fn<InvoicePdfRenderer["renderSinglePagePdf"]>(
@@ -69,7 +69,7 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
               bankAccountIds: ["primary"],
             },
             pdfFileNamePattern:
-              "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+              "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
           },
         ],
         issuers: [
@@ -140,7 +140,7 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
         async saveUpdatedInvoice(_current, updated) {
           savedInvoice = updated;
           return {
-            filePath: `sales/invoices/${updated.transactionDate.slice(0, 4)}/${updated.invoiceNumber}.yaml`,
+            filePath: `sales/invoices/${updated.invoiceDate.slice(0, 4)}/${updated.invoiceNumber}.yaml`,
           };
         },
       };
@@ -261,7 +261,7 @@ describe("keiri CLI", () => {
     expect(harness.stderr()).toBe("");
   });
 
-  it("発行日オプションをapplication層へ渡す", async () => {
+  it("請求日オプションをapplication層へ渡す", async () => {
     const harness = createHarness();
     const exitCode = await runCli(
       [
@@ -272,14 +272,37 @@ describe("keiri CLI", () => {
         "ACME",
         "--payment-due-date",
         "2027-01-31",
-        "--issue-date",
+        "--invoice-date",
         "2026-12-01",
       ],
       harness.dependencies,
       harness.io,
     );
     expect(exitCode).toBe(0);
-    expect(harness.savedInvoice()?.issueDate).toBe("2026-12-01");
+    expect(harness.savedInvoice()?.invoiceDate).toBe("2026-12-01");
+  });
+
+  it("旧日付オプションは受け付けずデータを保存しない", async () => {
+    const harness = createHarness();
+    const exitCode = await runCli(
+      [
+        "node",
+        "keiri",
+        "invoice",
+        "create",
+        "ACME",
+        "--payment-due-date",
+        "2026-11-30",
+        "--issue-date",
+        "2026-10-01",
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).not.toBe(0);
+    expect(harness.stderr()).toContain("--issue-date");
+    expect(harness.savedInvoice()).toBeUndefined();
+    expect(harness.stdout()).toBe("");
   });
 
   it("必須オプション不足を日本語で標準エラーへ出力する", async () => {
@@ -523,7 +546,7 @@ describe("keiri CLI", () => {
         "ACME-202610-01",
         "--payment-due-date",
         "2026-12-31",
-        "--issue-date",
+        "--invoice-date",
         "2026-10-26",
       ],
       harness.dependencies,
@@ -533,8 +556,7 @@ describe("keiri CLI", () => {
     expect(exitCode).toBe(0);
     expect(harness.savedInvoice()).toMatchObject({
       invoiceNumber: "ACME-202610-02",
-      issueDate: "2026-10-26",
-      transactionDate: "2026-10-26",
+      invoiceDate: "2026-10-26",
       paymentDueDate: "2026-12-31",
       revision: 1,
     });
@@ -681,9 +703,10 @@ describe("請求書発行CLI", () => {
     expect(harness.stdout()).toBe("");
   });
 
-  it("未来の発行日を実行日と照合して拒否する", async () => {
+  it("未来の請求日と請求日前の支払期限でも発行できる", async () => {
     const harness = await createIssueHarness();
-    harness.savedInvoice()!.issueDate = "2026-10-26";
+    harness.savedInvoice()!.invoiceDate = "2027-01-31";
+    harness.savedInvoice()!.paymentDueDate = "2026-10-01";
     const exitCode = await runCli(
       [
         "node",
@@ -698,10 +721,10 @@ describe("請求書発行CLI", () => {
       harness.io,
     );
 
-    expect(exitCode).toBe(1);
-    expect(harness.stderr()).toContain("issueDate");
-    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
-    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    expect(exitCode).toBe(0);
+    expect(harness.stderr()).toBe("");
+    expect(harness.renderSinglePagePdf).toHaveBeenCalledOnce();
+    expect(harness.commitIssuedInvoice).toHaveBeenCalledOnce();
   });
 
   it("PDF生成の失敗理由を標準エラーへ出力し成功を表示しない", async () => {

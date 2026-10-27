@@ -38,7 +38,7 @@ export function createPartner(
     billingInstructions: null,
     unitPricesIncludeTax: false,
     issuerDisplay: { phone: false, email: false, bankAccountIds: ["primary"] },
-    pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+    pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
     ...overrides,
   };
 }
@@ -67,8 +67,7 @@ export function createInvoiceForPartner(
         bankAccounts: [issuer.bankAccounts[0]],
       },
     },
-    issueDate: "2026-10-25",
-    transactionDate: "2026-10-25",
+    invoiceDate: "2026-10-25",
     paymentDueDate: "2026-11-30",
     paymentCompletedDate: null,
     unitPricesIncludeTax: partner.unitPricesIncludeTax,

@@ -1,7 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { todayInTokyo } from "#lib/domain/business-date";
 import {
   DataDirectoryConfigurationError,
   resolveKeiriDataDirectory,
@@ -17,7 +16,6 @@ export const POST: RequestHandler = async ({ request, url, params }) => {
     return handleIssueInvoiceRequest(request, url, params.invoiceNumber, {
       gateway: new FileInvoiceIssueGateway(dataDirectory),
       renderer: new PlaywrightInvoicePdfRenderer(repositoryRoot),
-      today: todayInTokyo(),
     });
   } catch (error) {
     if (error instanceof DataDirectoryConfigurationError) {

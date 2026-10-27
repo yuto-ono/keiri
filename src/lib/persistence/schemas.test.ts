@@ -24,7 +24,7 @@ issuerDisplay:
   email: false
   bankAccountIds:
     - primary
-pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}"
+pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}"
 `;
 
 const issuerYaml = `revision: 1
@@ -70,8 +70,7 @@ issuer:
         accountType: ordinary
         accountNumber: "1234567"
         accountHolderName: ヤマダタロウ
-issueDate: "2026-10-01"
-transactionDate: "2026-10-01"
+invoiceDate: "2026-10-01"
 paymentDueDate: "2026-11-30"
 paymentCompletedDate: null
 unitPricesIncludeTax: false
@@ -139,6 +138,39 @@ describe("永続化スキーマ", () => {
     );
     expect(result.lineItems[0].quantity).toBe(10.5);
     expect(result.issuer.snapshot.email).toEqual({ visible: false });
+  });
+
+  it.each(["issueDate", "transactionDate"])(
+    "旧日付項目 %s を許可しない",
+    (key) => {
+      expectDataIssues(
+        `${invoiceYaml}${key}: "2026-10-01"\n`,
+        invoiceSchema,
+        ["Unrecognized key"],
+      );
+    },
+  );
+
+  it.each(["", "2026-02-30", "2026-1-01"])("不正な請求日 %j を拒否する", (date) => {
+    expect(() =>
+      parseYaml(
+        invoiceYaml.replace(
+          'invoiceDate: "2026-10-01"',
+          `invoiceDate: "${date}"`,
+        ),
+        "sales/invoices/2026/ACME-202610-01.yaml",
+        invoiceSchema,
+      ),
+    ).toThrow(DataValidationError);
+  });
+
+  it("旧日付項目だけでは請求日の代用にならない", () => {
+    expectDataIssues(
+      invoiceYaml.replace("invoiceDate:", "issueDate:") +
+        'transactionDate: "2026-10-01"\n',
+      invoiceSchema,
+      ["Unrecognized keys", "string"],
+    );
   });
 
   it("設定と税区分の初期データを受け入れる", () => {

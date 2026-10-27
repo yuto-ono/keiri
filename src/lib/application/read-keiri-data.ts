@@ -26,7 +26,7 @@ export interface KeiriReadGateway {
 export interface InvoiceListEntry extends Pick<
   Invoice,
   | "invoiceNumber"
-  | "transactionDate"
+  | "invoiceDate"
   | "paymentDueDate"
   | "status"
   | "paymentCompletedDate"
@@ -51,34 +51,34 @@ export async function listInvoices(
   const currentYear = input.today.slice(0, 4);
   const year = input.year ?? currentYear;
   if (!/^\d{4}$/.test(year)) {
-    throw new RangeError(`取引年が不正です: ${year}`);
+    throw new RangeError(`請求年が不正です: ${year}`);
   }
   const data = await gateway.loadData();
   const years = [
     ...new Set([
       currentYear,
       year,
-      ...data.invoices.map((invoice) => invoice.transactionDate.slice(0, 4)),
+      ...data.invoices.map((invoice) => invoice.invoiceDate.slice(0, 4)),
     ]),
   ]
     .sort()
     .reverse();
   const invoices = data.invoices
-    .filter((invoice) => invoice.transactionDate.slice(0, 4) === year)
+    .filter((invoice) => invoice.invoiceDate.slice(0, 4) === year)
     .toSorted((left, right) =>
-      left.transactionDate === right.transactionDate
+      left.invoiceDate === right.invoiceDate
         ? 0
-        : isBusinessDateAfter(left.transactionDate, right.transactionDate)
+        : isBusinessDateAfter(left.invoiceDate, right.invoiceDate)
           ? -1
           : 1,
     );
   const months = new Map<string, InvoiceListEntry[]>();
   for (const invoice of invoices) {
-    const month = invoice.transactionDate.slice(0, 7);
+    const month = invoice.invoiceDate.slice(0, 7);
     const entries = months.get(month) ?? [];
     entries.push({
       invoiceNumber: invoice.invoiceNumber,
-      transactionDate: invoice.transactionDate,
+      invoiceDate: invoice.invoiceDate,
       paymentDueDate: invoice.paymentDueDate,
       status: invoice.status,
       paymentCompletedDate: invoice.paymentCompletedDate,

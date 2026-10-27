@@ -28,8 +28,7 @@ export interface InvoiceDetailData extends InvoiceDetail {
 }
 
 export interface InvoiceDraftForm {
-  issueDate: string;
-  transactionDate: string;
+  invoiceDate: string;
   paymentDueDate: string;
   honorific: Invoice["businessPartner"]["snapshot"]["honorific"] | "";
   unitPricesIncludeTax: boolean;
@@ -45,7 +44,7 @@ export interface InvoiceDraftForm {
 export interface InvoiceDraftFieldContext {
   businessPartnerCode: string;
   addressee: string;
-  issueMonth: string | null;
+  invoiceMonth: string | null;
   bankAccounts: readonly BankAccount[];
   selectableBankAccountIds: readonly string[];
   taxCategory: ApiReadResult<TaxableTaxCategory>;
@@ -58,7 +57,7 @@ export function getSavedInvoiceFieldContext(
   return {
     businessPartnerCode: invoice.businessPartner.code,
     addressee: invoice.businessPartner.snapshot.addressee,
-    issueMonth: invoice.issueDate.slice(0, 7),
+    invoiceMonth: invoice.invoiceDate.slice(0, 7),
     bankAccounts: getBankAccountChoices(invoice, options.bankAccounts),
     selectableBankAccountIds: options.bankAccounts.map((account) => account.id),
     taxCategory: getEditingTaxCategory(invoice, options),
@@ -67,8 +66,7 @@ export function getSavedInvoiceFieldContext(
 
 export function createInvoiceDraftForm(invoice: Invoice): InvoiceDraftForm {
   return {
-    issueDate: invoice.issueDate,
-    transactionDate: invoice.transactionDate,
+    invoiceDate: invoice.invoiceDate,
     paymentDueDate: invoice.paymentDueDate,
     honorific: invoice.businessPartner.snapshot.honorific,
     unitPricesIncludeTax: invoice.unitPricesIncludeTax,
@@ -175,8 +173,7 @@ export function prepareInvoiceDraftUpdate(
   );
   const proposed: Invoice = {
     ...invoice,
-    issueDate: form.issueDate,
-    transactionDate: form.transactionDate,
+    invoiceDate: form.invoiceDate,
     paymentDueDate: form.paymentDueDate,
     businessPartner: {
       ...invoice.businessPartner,
@@ -250,7 +247,6 @@ export async function issueSavedInvoice(
   fetcher: typeof fetch,
   invoice: Invoice,
   form: InvoiceDraftForm,
-  today: string,
 ): Promise<ApiReadResult<InvoiceChange>> {
   if (hasInvoiceDraftChanges(invoice, form))
     return {
@@ -260,7 +256,7 @@ export async function issueSavedInvoice(
         issues: [],
       },
     };
-  const issues = validateInvoiceForIssue(invoice, today);
+  const issues = validateInvoiceForIssue(invoice);
   if (issues.length)
     return {
       ok: false,

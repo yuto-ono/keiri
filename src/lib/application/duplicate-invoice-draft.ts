@@ -9,7 +9,7 @@ import { DomainValidationError } from "#lib/domain/domain-validation-error";
 export interface DuplicateInvoiceDraftInput {
   sourceInvoiceNumber: string;
   paymentDueDate: string;
-  issueDate?: string;
+  invoiceDate?: string;
   businessPartnerCode?: string;
   today: string;
   content?: InvoiceDraftFormContent;
@@ -38,7 +38,7 @@ export async function duplicateInvoiceDraft(
       businessPartnerCode:
         input.businessPartnerCode ?? source.businessPartner.code,
       paymentDueDate: input.paymentDueDate,
-      issueDate: input.issueDate,
+      invoiceDate: input.invoiceDate,
       today: input.today,
       content: input.content,
     },

@@ -23,7 +23,7 @@ function createHarness() {
   const loadCreationContext = vi.fn(async () => context);
   const saveNewInvoice = vi.fn<InvoiceCreationGateway["saveNewInvoice"]>(
     async (invoice) => ({
-      filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+      filePath: `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
     }),
   );
   return {
@@ -41,10 +41,9 @@ function createHarness() {
 function formBody() {
   return {
     businessPartnerCode: "OTHER",
-    issueDate: "2026-12-01",
+    invoiceDate: "2026-12-01",
     paymentDueDate: "2027-01-31",
     content: createInvoiceDraftFormContent({
-      transactionDate: "2025-12-31",
       honorific: "様",
       unitPricesIncludeTax: true,
       bankAccountIds: ["secondary", "primary"],
@@ -93,7 +92,7 @@ function requestFor(
 }
 
 describe.each(operations)("$name の全体フォームAPI", ({ run }) => {
-  it("変更した取引先・発行年月・明細などをまとめてリビジョン1で保存する", async () => {
+  it("変更した取引先・請求年月・明細などをまとめてリビジョン1で保存する", async () => {
     const harness = createHarness();
     const body = formBody();
     body.content.lineItems[0].name = "フォームで編集した業務";
@@ -102,13 +101,12 @@ describe.each(operations)("$name の全体フォームAPI", ({ run }) => {
     const response = await run(requestFor(body), harness.dependencies);
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
-      filePath: "sales/invoices/2025/OTHER-202612-01.yaml",
+      filePath: "sales/invoices/2026/OTHER-202612-01.yaml",
       invoice: {
         revision: 1,
         status: "draft",
         invoiceNumber: "OTHER-202612-01",
-        issueDate: "2026-12-01",
-        transactionDate: "2025-12-31",
+        invoiceDate: "2026-12-01",
         paymentDueDate: "2027-01-31",
         paymentCompletedDate: null,
         businessPartner: {
@@ -137,9 +135,9 @@ describe.each(operations)("$name の全体フォームAPI", ({ run }) => {
       },
     },
     {
-      field: "issueDateなし",
+      field: "invoiceDateなし",
       mutate: (body: Record<string, unknown>) => {
-        delete body.issueDate;
+        delete body.invoiceDate;
       },
     },
     {
@@ -227,16 +225,16 @@ describe.each(operations)("$name の全体フォームAPI", ({ run }) => {
     expect(harness.saveNewInvoice).not.toHaveBeenCalled();
   });
 
-  it("日付や個別名などの不備をまとめて422で返し、全体を保存しない", async () => {
+  it("税区分や個別名などの不備をまとめて422で返し、全体を保存しない", async () => {
     const harness = createHarness();
     const body = formBody();
-    body.content.transactionDate = "2026-02-30";
+    body.content.lineItems[0].taxCategoryId = "unknown";
     body.content.pdfFileNameOverride = "不正/個別名";
     const response = await run(requestFor(body), harness.dependencies);
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
       issues: expect.arrayContaining([
-        expect.objectContaining({ path: ["transactionDate"] }),
+        expect.objectContaining({ path: ["lineItems", 0, "taxCategoryId"] }),
         expect.objectContaining({ path: ["pdf", "fileNameOverride"] }),
       ]),
     });

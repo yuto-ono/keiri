@@ -19,7 +19,7 @@ function createHarness() {
   const loadCreationContext = vi.fn(async () => context);
   const saveNewInvoice = vi.fn<InvoiceCreationGateway["saveNewInvoice"]>(
     async (invoice) => ({
-      filePath: `sales/invoices/${invoice.transactionDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
+      filePath: `sales/invoices/${invoice.invoiceDate.slice(0, 4)}/${invoice.invoiceNumber}.yaml`,
     }),
   );
   return {
@@ -33,15 +33,14 @@ function createHarness() {
 const creationInput = {
   businessPartnerCode: "ACME",
   paymentDueDate: "2026-11-30",
-  issueDate: "2026-10-25",
+  invoiceDate: "2026-10-25",
   today: "2026-10-26",
 };
 
 describe("請求書全体フォームの初回保存", () => {
-  it("明細などの全入力を検証して1回で保存し、取引年を保存先に使う", async () => {
+  it("明細などの全入力を検証して1回で保存し、請求年を保存先に使う", async () => {
     const harness = createHarness();
     const content = createInvoiceDraftFormContent({
-      transactionDate: "2025-12-31",
       honorific: "様",
       unitPricesIncludeTax: true,
       bankAccountIds: ["secondary", "primary"],
@@ -53,13 +52,12 @@ describe("請求書全体フォームの初回保存", () => {
       ...creationInput,
       content,
     });
-    expect(result.filePath).toBe("sales/invoices/2025/ACME-202610-01.yaml");
+    expect(result.filePath).toBe("sales/invoices/2026/ACME-202610-01.yaml");
     expect(result.invoice).toMatchObject({
       revision: 1,
       status: "draft",
       invoiceNumber: "ACME-202610-01",
-      issueDate: "2026-10-25",
-      transactionDate: "2025-12-31",
+      invoiceDate: "2026-10-25",
       paymentDueDate: "2026-11-30",
       paymentCompletedDate: null,
       unitPricesIncludeTax: true,
@@ -124,11 +122,6 @@ describe("請求書全体フォームの初回保存", () => {
   });
 
   it.each([
-    {
-      reason: "不正な取引日",
-      content: createInvoiceDraftFormContent({ transactionDate: "2026-02-30" }),
-      path: ["transactionDate"],
-    },
     {
       reason: "未完成の明細",
       content: createInvoiceDraftFormContent({
@@ -252,7 +245,6 @@ describe("請求書全体フォームの初回保存", () => {
         createPartner({ code: "OTHER", addressee: "複製先の宛名" }),
       ];
       const content = createInvoiceDraftFormContent({
-        transactionDate: "2027-01-01",
         lineItems: [
           { ...source.lineItems[0], name: "変更後の業務", quantity: 2 },
         ],
@@ -264,12 +256,13 @@ describe("請求書全体フォームの初回保存", () => {
         sourceInvoiceNumber: source.invoiceNumber,
         ...creationInput,
         businessPartnerCode: "OTHER",
+        invoiceDate: "2027-01-01",
         content,
       });
       expect(result.invoice).toMatchObject({
-        invoiceNumber: "OTHER-202610-01",
+        invoiceNumber: "OTHER-202701-01",
         revision: 1,
-        transactionDate: "2027-01-01",
+        invoiceDate: "2027-01-01",
         lineItems: content.lineItems,
         notes: null,
         unitPricesIncludeTax: false,

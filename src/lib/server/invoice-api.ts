@@ -32,9 +32,8 @@ import { isSameOriginWriteRequest } from "./same-origin";
 const invoiceDraftFormRequestSchema = z.strictObject({
   businessPartnerCode: z.string().min(1),
   paymentDueDate: z.string().min(1),
-  issueDate: z.string().min(1),
+  invoiceDate: z.string().min(1),
   content: z.strictObject({
-    transactionDate: z.string().min(1),
     honorific: z.enum(["様", "御中"]),
     unitPricesIncludeTax: z.boolean(),
     bankAccountIds: z.array(z.string().min(1)),
@@ -67,7 +66,6 @@ export interface DuplicateInvoiceApiDependencies {
 export interface IssueInvoiceApiDependencies {
   gateway: InvoiceIssueGateway;
   renderer: InvoicePdfRenderer;
-  today: string;
 }
 
 export interface RevertInvoiceToDraftApiDependencies {
@@ -312,7 +310,6 @@ export async function handleIssueInvoiceRequest(
       {
         invoiceNumber,
         expectedRevision: parsed.data.revision,
-        today: dependencies.today,
       },
     );
     return json(result);

@@ -209,7 +209,7 @@ async function validateIssuedPdfFiles(
 
       const pdfPath = [
         "documents",
-        invoice.transactionDate.slice(0, 4),
+        invoice.invoiceDate.slice(0, 4),
         "sales",
         "invoices",
         invoice.businessPartner.code,

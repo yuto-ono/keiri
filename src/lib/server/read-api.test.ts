@@ -94,10 +94,10 @@ describe("読み取りAPI", () => {
     },
   );
 
-  it("指定された取引年と東京基準の現在年を一覧へ渡す", async () => {
+  it("指定された請求年と東京基準の現在年を一覧へ渡す", async () => {
     const harness = createHarness();
     harness.data.invoices = [
-      { ...createInvoiceForPartner(), transactionDate: "2025-12-31" },
+      { ...createInvoiceForPartner(), invoiceDate: "2025-12-31" },
     ];
     const defaultResponse = await handleListInvoicesRequest(
       new URL("http://127.0.0.1/api/invoices"),
@@ -123,7 +123,7 @@ describe("読み取りAPI", () => {
     "year=20260",
     "year=../2026",
     "year=2026&year=2025",
-  ])("不正・重複した取引年 %s を読み込み前に400で拒否する", async (query) => {
+  ])("不正・重複した請求年 %s を読み込み前に400で拒否する", async (query) => {
     const harness = createHarness();
     const response = await handleListInvoicesRequest(
       new URL(`http://127.0.0.1/api/invoices?${query}`),

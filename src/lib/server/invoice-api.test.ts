@@ -39,7 +39,7 @@ function createContext(): InvoiceCreationContext {
           bankAccountIds: ["primary"],
         },
         pdfFileNamePattern:
-          "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+          "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
       },
     ],
     issuers: [
@@ -110,7 +110,7 @@ function createFormBody(overrides: Record<string, unknown> = {}) {
   return {
     businessPartnerCode: "ACME",
     paymentDueDate: "2026-11-30",
-    issueDate: "2026-10-25",
+    invoiceDate: "2026-10-25",
     content: createInvoiceDraftFormContent(),
     ...overrides,
   };
@@ -358,7 +358,6 @@ function createIssueHarness() {
     dependencies: {
       gateway: { loadIssueContext, commitIssuedInvoice },
       renderer: { renderSinglePagePdf },
-      today: "2026-10-25",
     },
   };
 }
@@ -472,9 +471,10 @@ describe("請求書発行API", () => {
     expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
   });
 
-  it("未来の発行日を現在日と照合して拒否する", async () => {
+  it("未来の請求日と請求日前の支払期限でも発行できる", async () => {
     const harness = createIssueHarness();
-    harness.invoice.issueDate = "2026-10-26";
+    harness.invoice.invoiceDate = "2027-01-31";
+    harness.invoice.paymentDueDate = "2026-10-01";
     const response = await handleIssueInvoiceRequest(
       createIssueRequest(JSON.stringify({ revision: 1 })),
       issueUrl,
@@ -482,12 +482,16 @@ describe("請求書発行API", () => {
       harness.dependencies,
     );
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      issues: [expect.objectContaining({ path: ["issueDate"] })],
+      invoice: {
+        status: "issued",
+        invoiceDate: "2027-01-31",
+        paymentDueDate: "2026-10-01",
+      },
     });
-    expect(harness.renderSinglePagePdf).not.toHaveBeenCalled();
-    expect(harness.commitIssuedInvoice).not.toHaveBeenCalled();
+    expect(harness.renderSinglePagePdf).toHaveBeenCalledOnce();
+    expect(harness.commitIssuedInvoice).toHaveBeenCalledOnce();
   });
 
   it("PDF生成失敗を成功として返さず状態を保存しない", async () => {
@@ -530,8 +534,7 @@ function createInvoice(): Invoice {
         bankAccounts: issuer.bankAccounts,
       },
     },
-    issueDate: "2026-10-25",
-    transactionDate: "2026-10-25",
+    invoiceDate: "2026-10-25",
     paymentDueDate: "2026-11-30",
     paymentCompletedDate: null,
     unitPricesIncludeTax: false,
@@ -658,9 +661,8 @@ describe("請求書複製API", () => {
         JSON.stringify(
           createFormBody({
             paymentDueDate: "2026-12-31",
-            issueDate: "2026-10-26",
+            invoiceDate: "2026-10-26",
             content: createInvoiceDraftFormContent({
-              transactionDate: "2026-10-26",
               lineItems: source.lineItems,
               notes: source.notes,
             }),
@@ -677,7 +679,7 @@ describe("請求書複製API", () => {
       invoice: {
         status: "draft",
         invoiceNumber: "ACME-202610-02",
-        issueDate: "2026-10-26",
+        invoiceDate: "2026-10-26",
         paymentDueDate: "2026-12-31",
         notes: "引き継ぐ備考",
         lineItems: source.lineItems,

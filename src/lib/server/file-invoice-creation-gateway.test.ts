@@ -90,7 +90,7 @@ const partner: BusinessPartner = {
     email: false,
     bankAccountIds: ["primary"],
   },
-  pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+  pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
 };
 
 let temporaryRoot: string;
@@ -144,7 +144,7 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
     );
   });
 
-  it("取引年を変更した更新では新しい年へYAMLを移動する", async () => {
+  it("同じ請求月内の更新は保存先と請求書番号を維持する", async () => {
     const created = await createInvoiceDraft(
       new FileInvoiceCreationGateway(dataRoot),
       {
@@ -158,20 +158,64 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
       created.invoice.invoiceNumber,
       {
         ...created.invoice,
-        transactionDate: "2025-12-31",
+        invoiceDate: "2026-10-31",
         notes: "更新後",
       },
     );
 
-    expect(updated.filePath).toBe("sales/invoices/2025/ACME-202610-01.yaml");
+    expect(updated.filePath).toBe("sales/invoices/2026/ACME-202610-01.yaml");
     expect(updated.invoice.revision).toBe(2);
-    await expect(
-      readFile(join(dataRoot, created.filePath), "utf8"),
-    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(updated.filePath).toBe(created.filePath);
+    expect(updated.invoice.invoiceNumber).toBe(created.invoice.invoiceNumber);
     const source = await readFile(join(dataRoot, updated.filePath), "utf8");
     expect(parseYaml(source, updated.filePath, invoiceSchema)).toEqual(
       updated.invoice,
     );
+  });
+
+  it.each(["2026-11-01", "2025-12-31"])(
+    "保存後に請求日を %s へ変更してもファイルを移動・更新しない",
+    async (invoiceDate) => {
+      const draft = await createPopulatedDraft();
+      const original = await readFile(join(dataRoot, draft.filePath), "utf8");
+      await expect(
+        updateInvoiceDraft(
+          new FileInvoiceUpdateGateway(dataRoot),
+          draft.invoice.invoiceNumber,
+          { ...draft.invoice, invoiceDate },
+        ),
+      ).rejects.toMatchObject({
+        issues: [expect.objectContaining({ path: ["invoiceDate"] })],
+      });
+      expect(await readFile(join(dataRoot, draft.filePath), "utf8")).toBe(
+        original,
+      );
+      expect(await readdir(join(dataRoot, "sales/invoices"))).toEqual([
+        ".gitkeep",
+        "2026",
+      ]);
+    },
+  );
+
+  it("翌年の請求日と請求日前の支払期限で発行し、請求年にYAMLとPDFを保存する", async () => {
+    const draft = await createPopulatedDraft("2027-01-01");
+    const issued = await issueInvoice(
+      new FileInvoiceIssueGateway(dataRoot),
+      { renderSinglePagePdf: async () => createPdf(1) },
+      {
+        invoiceNumber: draft.invoice.invoiceNumber,
+        expectedRevision: draft.invoice.revision,
+      },
+    );
+    expect(issued.invoiceFilePath).toBe(
+      "sales/invoices/2027/ACME-202701-01.yaml",
+    );
+    expect(issued.pdfFilePath).toBe(
+      "documents/2027/sales/invoices/ACME/ACME-202701-01.pdf",
+    );
+    const data = await loadKeiriData(dataRoot);
+    expect(data.invoices.map((record) => record.data)).toEqual([issued.invoice]);
+    expect(issued.invoice.paymentDueDate).toBe("2026-11-30");
   });
 
   it("保存済みYAMLを複製元として新しい下書きを保存する", async () => {
@@ -216,7 +260,6 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
       {
         invoiceNumber: draft.invoice.invoiceNumber,
         expectedRevision: draft.invoice.revision,
-        today: "2026-10-25",
       },
     );
 
@@ -263,7 +306,6 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
       issueInvoice(new FileInvoiceIssueGateway(dataRoot), renderer, {
         invoiceNumber: draft.invoice.invoiceNumber,
         expectedRevision: draft.invoice.revision,
-        today: "2026-10-25",
       }),
     ).rejects.toThrow("既に存在します");
 
@@ -289,7 +331,6 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
       issueInvoice(new FileInvoiceIssueGateway(dataRoot), renderer, {
         invoiceNumber: draft.invoice.invoiceNumber,
         expectedRevision: draft.invoice.revision,
-        today: "2026-10-25",
       }),
     ).rejects.toThrow("2ページあります");
 
@@ -308,11 +349,12 @@ describe("ファイルシステムを使う請求書作成gateway", () => {
   });
 });
 
-async function createPopulatedDraft() {
+async function createPopulatedDraft(invoiceDate = "2026-10-25") {
   const created = await createInvoiceDraft(
     new FileInvoiceCreationGateway(dataRoot),
     {
       businessPartnerCode: "ACME",
+      invoiceDate,
       paymentDueDate: "2026-11-30",
       today: "2026-10-25",
     },
@@ -336,15 +378,15 @@ async function createPopulatedDraft() {
 }
 
 describe("ファイルシステムを使う請求書下書きの削除", () => {
-  it("取引年に保存されたYAMLだけを削除し、月次進捗と利用者管理のPDFは変更しない", async () => {
+  it("請求年に保存されたYAMLだけを削除し、月次進捗と利用者管理のPDFは変更しない", async () => {
     const draft = await createPopulatedDraft();
-    const moved = await updateInvoiceDraft(
+    const updated = await updateInvoiceDraft(
       new FileInvoiceUpdateGateway(dataRoot),
       draft.invoice.invoiceNumber,
-      { ...draft.invoice, transactionDate: "2025-12-31" },
+      { ...draft.invoice, invoiceDate: "2026-10-31" },
     );
     const monthlyPath = join(dataRoot, "monthly-billing/2026-10.md");
-    const pdfDirectory = join(dataRoot, "documents/2025/sales/invoices/ACME");
+    const pdfDirectory = join(dataRoot, "documents/2026/sales/invoices/ACME");
     const pdfPath = join(pdfDirectory, "利用者管理.pdf");
     await writeFile(monthlyPath, "月次業務の進捗は手動で管理する\n");
     await mkdir(pdfDirectory, { recursive: true });
@@ -353,19 +395,19 @@ describe("ファイルシステムを使う請求書下書きの削除", () => {
     const result = await deleteInvoiceDraft(
       new FileInvoiceDeletionGateway(dataRoot),
       {
-        invoiceNumber: moved.invoice.invoiceNumber,
-        expectedRevision: moved.invoice.revision,
+        invoiceNumber: updated.invoice.invoiceNumber,
+        expectedRevision: updated.invoice.revision,
       },
     );
 
     expect(result).toEqual({
-      invoiceNumber: moved.invoice.invoiceNumber,
-      filePath: moved.filePath,
+      invoiceNumber: updated.invoice.invoiceNumber,
+      filePath: updated.filePath,
     });
     await expect(
-      readFile(join(dataRoot, moved.filePath)),
+      readFile(join(dataRoot, updated.filePath)),
     ).rejects.toMatchObject({ code: "ENOENT" });
-    expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([]);
+    expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([]);
     expect(await readFile(monthlyPath, "utf8")).toBe(
       "月次業務の進捗は手動で管理する\n",
     );
@@ -556,7 +598,7 @@ describe("ファイルシステムを使う入金管理", () => {
       expect(await readFile(join(dataRoot, issued.pdfFilePath))).toEqual(
         originalPdf,
       );
-      expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+      expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([
         "ACME-202610-01.yaml",
       ]);
     },
@@ -570,7 +612,7 @@ async function createIssuedInvoice() {
     draft.invoice.invoiceNumber,
     {
       ...draft.invoice,
-      transactionDate: "2025-12-31",
+      invoiceDate: "2026-10-31",
       pdf: { fileNameOverride: "発行時の個別名", issuedFileName: null },
     },
   );
@@ -584,15 +626,14 @@ async function createIssuedInvoice() {
     {
       invoiceNumber: updated.invoice.invoiceNumber,
       expectedRevision: updated.invoice.revision,
-      today: "2026-10-25",
     },
   );
 }
 
 describe("ファイルシステムを使う請求書の下書き戻し", () => {
-  it("取引年の記録済みPDFだけを破棄し、同じ番号で編集と再発行ができる", async () => {
+  it("請求年の記録済みPDFだけを破棄し、同じ番号で編集と再発行ができる", async () => {
     const issued = await createIssuedInvoice();
-    const pdfDirectory = join(dataRoot, "documents/2025/sales/invoices/ACME");
+    const pdfDirectory = join(dataRoot, "documents/2026/sales/invoices/ACME");
     await writeFile(
       join(pdfDirectory, "利用者管理.pdf"),
       "利用者が管理する書類",
@@ -634,7 +675,7 @@ describe("ファイルシステムを使う請求書の下書き戻し", () => {
     expect(await readFile(join(pdfDirectory, "利用者管理.pdf"), "utf8")).toBe(
       "利用者が管理する書類",
     );
-    expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+    expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([
       "ACME-202610-01.yaml",
     ]);
     await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
@@ -660,13 +701,12 @@ describe("ファイルシステムを使う請求書の下書き戻し", () => {
       {
         invoiceNumber: edited.invoice.invoiceNumber,
         expectedRevision: edited.invoice.revision,
-        today: "2026-10-25",
       },
     );
     expect(reissued.invoice.invoiceNumber).toBe(issued.invoice.invoiceNumber);
     expect(reissued.invoice.notes).toBe("再発行する内容");
     expect(reissued.pdfFilePath).toBe(
-      "documents/2025/sales/invoices/ACME/再発行の名前.pdf",
+      "documents/2026/sales/invoices/ACME/再発行の名前.pdf",
     );
   });
 
@@ -699,11 +739,11 @@ describe("ファイルシステムを使う請求書の下書き戻し", () => {
 
       expect(await readFile(invoicePath, "utf8")).toBe(originalYaml);
       expect(await readFile(pdfPath)).toEqual(originalPdf);
-      expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+      expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([
         "ACME-202610-01.yaml",
       ]);
       expect(
-        await readdir(join(dataRoot, "documents/2025/sales/invoices/ACME")),
+        await readdir(join(dataRoot, "documents/2026/sales/invoices/ACME")),
       ).toEqual(["発行時の個別名.pdf"]);
       await expect(loadKeiriData(dataRoot)).resolves.toMatchObject({
         invoices: [{ data: issued.invoice }],

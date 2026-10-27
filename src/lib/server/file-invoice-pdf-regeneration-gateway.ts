@@ -38,7 +38,7 @@ export class FileInvoicePdfRegenerationGateway implements InvoicePdfRegeneration
   ): Promise<{ pdfFilePath: string }> {
     const pdfFilePath = issuedPdfPath(invoice);
     const absolutePdfPath = resolve(this.#rootDirectory, pdfFilePath);
-    const year = invoice.transactionDate.slice(0, 4);
+    const year = invoice.invoiceDate.slice(0, 4);
     const invoiceFilePath = `sales/invoices/${year}/${invoice.invoiceNumber}.yaml`;
     const stagedPdfPath = await stageFile(absolutePdfPath, contents);
     try {
@@ -97,7 +97,7 @@ function issuedPdfPath(invoice: Invoice): string {
   }
   return [
     "documents",
-    invoice.transactionDate.slice(0, 4),
+    invoice.invoiceDate.slice(0, 4),
     "sales",
     "invoices",
     invoice.businessPartner.code,

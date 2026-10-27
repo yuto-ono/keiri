@@ -27,8 +27,7 @@ export function createUnsavedInvoiceForm(
 ): UnsavedInvoiceForm {
   const form: UnsavedInvoiceForm = {
     businessPartnerCode: "",
-    issueDate: data.today,
-    transactionDate: data.today,
+    invoiceDate: data.today,
     paymentDueDate: "",
     honorific: "",
     unitPricesIncludeTax: false,
@@ -75,7 +74,7 @@ export function getUnsavedInvoiceFieldContext(
   return {
     businessPartnerCode: partner?.code ?? "",
     addressee: partner?.addressee ?? "",
-    issueMonth: null,
+    invoiceMonth: null,
     bankAccounts: data.issuer.bankAccounts,
     selectableBankAccountIds: data.issuer.bankAccounts.map(
       (account) => account.id,
@@ -150,7 +149,7 @@ export function prepareUnsavedInvoice(
 ): ApiReadResult<{
   body: {
     businessPartnerCode: string;
-    issueDate: string;
+    invoiceDate: string;
     paymentDueDate: string;
     content: InvoiceDraftFormContent;
   };
@@ -187,8 +186,7 @@ export function prepareUnsavedInvoice(
   const pdfFileNameOverride =
     form.pdfFileNameOverride === "" ? null : form.pdfFileNameOverride;
   const draftContent = {
-    issueDate: form.issueDate,
-    transactionDate: form.transactionDate,
+    invoiceDate: form.invoiceDate,
     paymentDueDate: form.paymentDueDate,
     unitPricesIncludeTax: form.unitPricesIncludeTax,
     lineItems,
@@ -206,10 +204,9 @@ export function prepareUnsavedInvoice(
     value: {
       body: {
         businessPartnerCode: form.businessPartnerCode,
-        issueDate: form.issueDate,
+        invoiceDate: form.invoiceDate,
         paymentDueDate: form.paymentDueDate,
         content: {
-          transactionDate: form.transactionDate,
           honorific: form.honorific,
           unitPricesIncludeTax: form.unitPricesIncludeTax,
           bankAccountIds: [...form.bankAccountIds],

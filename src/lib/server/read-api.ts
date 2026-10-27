@@ -55,8 +55,8 @@ export async function handleListInvoicesRequest(
   ) {
     return jsonReadResponse(
       {
-        message: "取引年を4桁の数字で1つ指定してください。",
-        issues: [{ path: ["year"], message: "取引年が不正です。" }],
+        message: "請求年を4桁の数字で1つ指定してください。",
+        issues: [{ path: ["year"], message: "請求年が不正です。" }],
       },
       400,
     );

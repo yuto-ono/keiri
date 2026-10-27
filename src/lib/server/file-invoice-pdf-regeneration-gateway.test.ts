@@ -74,9 +74,10 @@ beforeEach(async () => {
     serializeBusinessPartner(createPartner()),
   );
   invoice = createInvoiceForPartner(undefined, "issued");
-  invoice.transactionDate = "2025-12-31";
+  invoice.invoiceDate = "2025-12-31";
+  invoice.invoiceNumber = "ACME-202512-01";
   invoice.pdf = { fileNameOverride: "別の指定名", issuedFileName: "保存済み.pdf" };
-  invoicePath = join(dataRoot, "sales/invoices/2025/ACME-202610-01.yaml");
+  invoicePath = join(dataRoot, "sales/invoices/2025/ACME-202512-01.yaml");
   pdfPath = join(dataRoot, "documents/2025/sales/invoices/ACME/保存済み.pdf");
   await mkdir(dirname(invoicePath), { recursive: true });
   await mkdir(dirname(pdfPath), { recursive: true });
@@ -108,7 +109,7 @@ function regenerate(render?: InvoicePdfRenderer["renderSinglePagePdf"]) {
 async function expectOriginalFiles() {
   expect(await readFile(invoicePath, "utf8")).toBe(originalYaml);
   expect(await readFile(pdfPath)).toEqual(originalPdf);
-  expect(await readdir(dirname(invoicePath))).toEqual(["ACME-202610-01.yaml"]);
+  expect(await readdir(dirname(invoicePath))).toEqual(["ACME-202512-01.yaml"]);
   expect(await readdir(dirname(pdfPath))).toEqual(["保存済み.pdf"]);
 }
 
@@ -181,7 +182,7 @@ describe("正式PDFだけを差し替えるファイルgateway", () => {
           changed.pdf.issuedFileName = null;
         }
         if (field === "fileName") changed.pdf.issuedFileName = "変更後.pdf";
-        if (field === "year") changed.transactionDate = "2026-01-01";
+        if (field === "year") changed.invoiceDate = "2026-01-01";
         if (field === "partner") changed.businessPartner.code = "OTHER";
         originalYaml = serializeInvoice(changed);
         await writeFile(invoicePath, originalYaml);

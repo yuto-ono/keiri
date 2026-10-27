@@ -23,7 +23,7 @@
     </div>
   </header>
   <label class="year-select">
-    取引年
+    請求年
     <select
       value={result.year}
       onchange={(event) =>
@@ -35,7 +35,7 @@
     </select>
   </label>
   {#if result.months.length === 0}
-    <p class="panel content-panel muted">この取引年の請求書はありません。</p>
+    <p class="panel content-panel muted">この請求年の請求書はありません。</p>
   {/if}
   {#each result.months as group (group.month)}
     <section class="month-group" aria-label={formatBusinessMonth(group.month)}>
@@ -44,7 +44,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th scope="col">取引日</th>
+              <th scope="col">請求日</th>
               <th scope="col">請求書番号</th>
               <th scope="col">宛名</th>
               <th scope="col">支払期限</th>
@@ -57,8 +57,8 @@
             {#each group.invoices as invoice (invoice.invoiceNumber)}
               <tr class="linked-row">
                 <td>
-                  <time datetime={invoice.transactionDate}>
-                    {formatBusinessDate(invoice.transactionDate)}
+                  <time datetime={invoice.invoiceDate}>
+                    {formatBusinessDate(invoice.invoiceDate)}
                   </time>
                 </td>
                 <td>

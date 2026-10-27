@@ -30,7 +30,7 @@ export class FileKeiriReadGateway implements KeiriReadGateway {
     if (invoice.status !== "issued" || invoice.pdf.issuedFileName === null) {
       throw new Error("発行済み請求書の正式PDFだけを取得できます。");
     }
-    const filePath = `documents/${invoice.transactionDate.slice(0, 4)}/sales/invoices/${invoice.businessPartner.code}/${invoice.pdf.issuedFileName}`;
+    const filePath = `documents/${invoice.invoiceDate.slice(0, 4)}/sales/invoices/${invoice.businessPartner.code}/${invoice.pdf.issuedFileName}`;
     return new Uint8Array(
       await readFile(resolve(this.#rootDirectory, filePath)),
     );

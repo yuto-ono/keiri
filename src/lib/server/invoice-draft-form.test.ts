@@ -54,15 +54,14 @@ afterEach(async () => {
 
 const input = {
   businessPartnerCode: "ACME",
-  issueDate: "2026-10-25",
+  invoiceDate: "2026-10-25",
   paymentDueDate: "2026-11-30",
   today: "2026-10-26",
 };
 
 describe("全体フォームのファイル保存", () => {
-  it("APIの初回保存で入力全体を取引年へ保存し、中間の空下書きを作らない", async () => {
+  it("APIの初回保存で入力全体を請求年へ保存し、中間の空下書きを作らない", async () => {
     const content = createInvoiceDraftFormContent({
-      transactionDate: "2025-12-31",
       honorific: "様",
       bankAccountIds: ["secondary", "primary"],
       notes: "初回保存の備考",
@@ -76,7 +75,7 @@ describe("全体フォームのファイル保存", () => {
       },
       body: JSON.stringify({
         businessPartnerCode: input.businessPartnerCode,
-        issueDate: input.issueDate,
+        invoiceDate: input.invoiceDate,
         paymentDueDate: input.paymentDueDate,
         content,
       }),
@@ -88,7 +87,7 @@ describe("全体フォームのファイル保存", () => {
     );
     expect(response.status).toBe(201);
     const result = await response.json();
-    expect(result.filePath).toBe("sales/invoices/2025/ACME-202610-01.yaml");
+    expect(result.filePath).toBe("sales/invoices/2026/ACME-202610-01.yaml");
     expect(result.invoice.revision).toBe(1);
     expect(result.invoice.lineItems).toEqual(content.lineItems);
     expect(result.invoice.notes).toBe(content.notes);
@@ -97,9 +96,9 @@ describe("全体フォームのファイル保存", () => {
     ).toEqual([result.invoice]);
     expect(await readdir(join(dataRoot, "sales/invoices"))).toEqual([
       ".gitkeep",
-      "2025",
+      "2026",
     ]);
-    expect(await readdir(join(dataRoot, "sales/invoices/2025"))).toEqual([
+    expect(await readdir(join(dataRoot, "sales/invoices/2026"))).toEqual([
       "ACME-202610-01.yaml",
     ]);
     expect(rename).toHaveBeenCalledOnce();
@@ -157,7 +156,6 @@ describe("全体フォームのファイル保存", () => {
     });
     const sourceYaml = await readFile(join(dataRoot, source.filePath), "utf8");
     const content = createInvoiceDraftFormContent({
-      transactionDate: "2025-12-31",
       notes: null,
       lineItems: [
         { ...source.invoice.lineItems[0], name: "複製後の変更", quantity: 2 },
@@ -168,7 +166,7 @@ describe("全体フォームのファイル保存", () => {
       sourceInvoiceNumber: source.invoice.invoiceNumber,
       content,
     });
-    expect(duplicated.filePath).toBe("sales/invoices/2025/ACME-202610-02.yaml");
+    expect(duplicated.filePath).toBe("sales/invoices/2026/ACME-202610-02.yaml");
     expect(duplicated.invoice).toMatchObject({
       revision: 1,
       lineItems: content.lineItems,

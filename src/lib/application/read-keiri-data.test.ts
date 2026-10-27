@@ -32,7 +32,7 @@ function createHarness() {
 }
 
 describe("画面向けのデータ取得", () => {
-  it("取引年を選び、月と取引日の新しい順で全件を返し、元のデータを並べ替えない", async () => {
+  it("請求年を選び、月と請求日の新しい順で全件を返し、元のデータを並べ替えない", async () => {
     const harness = createHarness();
     harness.data.invoices = [
       "2025-12-31",
@@ -43,7 +43,7 @@ describe("画面向けのデータ取得", () => {
     ].map((date, index) => ({
       ...createInvoiceForPartner(),
       invoiceNumber: `ACME-202610-0${index + 1}`,
-      transactionDate: date,
+      invoiceDate: date,
     }));
     const before = structuredClone(harness.data);
     const result = await listInvoices(harness.gateway, { today: "2026-10-25" });
@@ -77,7 +77,7 @@ describe("画面向けのデータ取得", () => {
     const result = await listInvoices(harness.gateway, { today: "2026-10-25" });
     expect(result.months[0].invoices[0]).toEqual({
       invoiceNumber: invoice.invoiceNumber,
-      transactionDate: "2026-10-25",
+      invoiceDate: "2026-10-25",
       paymentDueDate: "2026-11-30",
       status: "issued",
       paymentCompletedDate: "2026-10-24",

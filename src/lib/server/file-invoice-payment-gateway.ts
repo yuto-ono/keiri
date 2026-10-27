@@ -26,7 +26,7 @@ export class FileInvoicePaymentGateway implements InvoicePaymentGateway {
     currentInvoice: Invoice,
     updatedInvoice: Invoice,
   ): Promise<{ filePath: string }> {
-    const filePath = `sales/invoices/${currentInvoice.transactionDate.slice(0, 4)}/${currentInvoice.invoiceNumber}.yaml`;
+    const filePath = `sales/invoices/${currentInvoice.invoiceDate.slice(0, 4)}/${currentInvoice.invoiceNumber}.yaml`;
     await writeTextFileAtomically(
       resolve(this.#rootDirectory, filePath),
       serializeInvoice(updatedInvoice),

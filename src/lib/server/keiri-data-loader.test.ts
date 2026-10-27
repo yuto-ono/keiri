@@ -47,7 +47,7 @@ const partner: BusinessPartner = {
     email: false,
     bankAccountIds: ["primary"],
   },
-  pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+  pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
 };
 
 const invoice: Invoice = {
@@ -68,8 +68,7 @@ const invoice: Invoice = {
       bankAccounts: issuer.bankAccounts,
     },
   },
-  issueDate: "2026-10-01",
-  transactionDate: "2026-10-01",
+  invoiceDate: "2026-10-01",
   paymentDueDate: "2026-11-30",
   paymentCompletedDate: null,
   unitPricesIncludeTax: false,

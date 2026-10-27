@@ -65,8 +65,7 @@ function createInvoice(): Invoice {
         bankAccounts: [primaryAccount],
       },
     },
-    issueDate: "2026-10-01",
-    transactionDate: "2026-10-01",
+    invoiceDate: "2026-10-01",
     paymentDueDate: "2026-11-30",
     paymentCompletedDate: null,
     unitPricesIncludeTax: false,
@@ -89,7 +88,7 @@ function createGateway(
     async saveUpdatedInvoice(current, updated) {
       saved = { currentInvoice: current, updatedInvoice: updated };
       return {
-        filePath: `sales/invoices/${updated.transactionDate.slice(0, 4)}/${updated.invoiceNumber}.yaml`,
+        filePath: `sales/invoices/${updated.invoiceDate.slice(0, 4)}/${updated.invoiceNumber}.yaml`,
       };
     },
   };
@@ -105,8 +104,7 @@ describe("請求書下書きの更新", () => {
         ...current.businessPartner,
         snapshot: { ...current.businessPartner.snapshot, honorific: "様" },
       },
-      issueDate: "2026-10-31",
-      transactionDate: "2025-12-31",
+      invoiceDate: "2026-10-31",
       paymentDueDate: "2026-01-31",
       unitPricesIncludeTax: true,
       lineItems: [
@@ -129,10 +127,10 @@ describe("請求書下書きの更新", () => {
     );
 
     expect(result.invoice.revision).toBe(4);
-    expect(result.invoice.transactionDate).toBe("2025-12-31");
+    expect(result.invoice.invoiceDate).toBe("2026-10-31");
     expect(result.invoice.businessPartner.snapshot.honorific).toBe("様");
     expect(result.invoice.lineItems).toEqual(proposed.lineItems);
-    expect(result.filePath).toBe("sales/invoices/2025/ACME-202610-01.yaml");
+    expect(result.filePath).toBe("sales/invoices/2026/ACME-202610-01.yaml");
     expect(harness.saved()).toEqual({
       currentInvoice: current,
       updatedInvoice: result.invoice,
@@ -151,7 +149,7 @@ describe("請求書下書きの更新", () => {
     expect(harness.saved()).toBeUndefined();
   });
 
-  it("請求書番号、取引先、状態、端数処理、発行年月の変更をまとめて拒否する", async () => {
+  it("請求書番号、取引先、状態、端数処理、請求年月の変更をまとめて拒否する", async () => {
     const current = createInvoice();
     const proposed: Invoice = {
       ...current,
@@ -161,7 +159,7 @@ describe("請求書下書きの更新", () => {
         ...current.businessPartner,
         code: "OTHER",
       },
-      issueDate: "2026-11-01",
+      invoiceDate: "2026-11-01",
       rounding: { ...current.rounding, lineAmount: "ceil" },
       pdf: { ...current.pdf, issuedFileName: "invoice.pdf" },
     };
@@ -186,7 +184,7 @@ describe("請求書下書きの更新", () => {
           "pdf.issuedFileName",
           "businessPartner",
           "rounding",
-          "issueDate",
+          "invoiceDate",
         ]),
       );
     }

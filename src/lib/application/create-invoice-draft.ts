@@ -30,13 +30,12 @@ export interface InvoiceCreationGateway {
 export interface CreateInvoiceDraftInput {
   businessPartnerCode: string;
   paymentDueDate: string;
-  issueDate?: string;
+  invoiceDate?: string;
   today: string;
   content?: InvoiceDraftFormContent;
 }
 
 export interface InvoiceDraftFormContent extends InvoiceDraftInitialContent {
-  transactionDate: string;
   honorific: Honorific;
   unitPricesIncludeTax: boolean;
   bankAccountIds: string[];
@@ -68,10 +67,10 @@ export function buildInvoiceDraft(
   input: CreateInvoiceDraftInput,
   initialContent: InvoiceDraftInitialContent = { lineItems: [], notes: null },
 ): Invoice {
-  const issueDate = input.issueDate ?? input.today;
+  const invoiceDate = input.invoiceDate ?? input.today;
   const dateIssues = validateInputDates(
     input.today,
-    issueDate,
+    invoiceDate,
     input.paymentDueDate,
   );
   if (dateIssues.length > 0) {
@@ -133,7 +132,7 @@ export function buildInvoiceDraft(
 
   const invoiceNumber = allocateInvoiceNumber(
     businessPartner.code,
-    issueDate,
+    invoiceDate,
     context.invoices,
   );
   const invoice: Invoice = {
@@ -165,8 +164,7 @@ export function buildInvoiceDraft(
         })),
       },
     },
-    issueDate,
-    transactionDate: input.content?.transactionDate ?? issueDate,
+    invoiceDate,
     paymentDueDate: input.paymentDueDate,
     paymentCompletedDate: null,
     unitPricesIncludeTax:
@@ -208,15 +206,15 @@ export function buildInvoiceDraft(
 
 function validateInputDates(
   today: string,
-  issueDate: string,
+  invoiceDate: string,
   paymentDueDate: string,
 ): DomainValidationIssue[] {
   const issues: DomainValidationIssue[] = [];
   if (!isBusinessDate(today)) {
     issues.push({ path: ["today"], message: "現在日が不正です。" });
   }
-  if (!isBusinessDate(issueDate)) {
-    issues.push({ path: ["issueDate"], message: "発行日が不正です。" });
+  if (!isBusinessDate(invoiceDate)) {
+    issues.push({ path: ["invoiceDate"], message: "請求日が不正です。" });
   }
   if (!isBusinessDate(paymentDueDate)) {
     issues.push({
@@ -263,11 +261,11 @@ function validateSnapshotSource(
 
 function allocateInvoiceNumber(
   businessPartnerCode: string,
-  issueDate: string,
+  invoiceDate: string,
   invoices: readonly Invoice[],
 ): string {
-  const issueMonth = issueDate.slice(0, 7).replace("-", "");
-  const prefix = `${businessPartnerCode}-${issueMonth}-`;
+  const invoiceMonth = invoiceDate.slice(0, 7).replace("-", "");
+  const prefix = `${businessPartnerCode}-${invoiceMonth}-`;
   const sequences = invoices
     .filter((invoice) => invoice.invoiceNumber.startsWith(prefix))
     .map((invoice) => Number(invoice.invoiceNumber.slice(prefix.length)))
@@ -281,7 +279,7 @@ function allocateInvoiceNumber(
     throw new DomainValidationError("請求書を作成できません。", [
       {
         path: ["invoiceNumber"],
-        message: `${businessPartnerCode}の${issueMonth}に採番可能な請求書番号がありません。`,
+        message: `${businessPartnerCode}の${invoiceMonth}に採番可能な請求書番号がありません。`,
       },
     ]);
   }

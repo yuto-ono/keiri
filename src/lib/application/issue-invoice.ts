@@ -43,7 +43,6 @@ export interface InvoiceIssueGateway {
 export interface IssueInvoiceInput {
   invoiceNumber: string;
   expectedRevision: number;
-  today: string;
 }
 
 export interface IssueInvoiceResult {
@@ -68,7 +67,7 @@ export async function issueInvoice(
     ]);
   }
 
-  const issues = validateInvoiceForIssue(currentInvoice, input.today);
+  const issues = validateInvoiceForIssue(currentInvoice);
   if (
     !Number.isSafeInteger(input.expectedRevision) ||
     input.expectedRevision < 1
@@ -120,7 +119,7 @@ export async function issueInvoice(
       businessPartnerCode: currentInvoice.businessPartner.code,
       addressee: currentInvoice.businessPartner.snapshot.addressee,
       honorific: currentInvoice.businessPartner.snapshot.honorific,
-      issueDate: currentInvoice.issueDate,
+      invoiceDate: currentInvoice.invoiceDate,
       sequence,
     },
   );

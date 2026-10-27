@@ -1,10 +1,9 @@
-import { isBusinessDate, isBusinessDateAfter } from "#lib/domain/business-date";
+import { isBusinessDate } from "#lib/domain/business-date";
 import type { DomainValidationIssue } from "#lib/domain/domain-validation-error";
 import type { Invoice } from "#lib/domain/model";
 
 export function validateInvoiceForIssue(
   invoice: Invoice,
-  today: string,
 ): DomainValidationIssue[] {
   const issues: DomainValidationIssue[] = [];
 
@@ -15,32 +14,11 @@ export function validateInvoiceForIssue(
     });
   }
 
-  if (!isBusinessDate(today)) {
-    throw new RangeError(`現在日が不正です: ${today}`);
+  if (!isBusinessDate(invoice.invoiceDate)) {
+    issues.push({ path: ["invoiceDate"], message: "請求日が不正です。" });
   }
-
-  if (!isBusinessDate(invoice.issueDate)) {
-    issues.push({ path: ["issueDate"], message: "発行日が不正です。" });
-  } else if (isBusinessDateAfter(invoice.issueDate, today)) {
-    issues.push({
-      path: ["issueDate"],
-      message: "未来の発行日を持つ請求書は、その日まで発行できません。",
-    });
-  }
-
   if (!isBusinessDate(invoice.paymentDueDate)) {
-    issues.push({
-      path: ["paymentDueDate"],
-      message: "支払期限が不正です。",
-    });
-  } else if (
-    isBusinessDate(invoice.issueDate) &&
-    isBusinessDateAfter(invoice.issueDate, invoice.paymentDueDate)
-  ) {
-    issues.push({
-      path: ["paymentDueDate"],
-      message: "支払期限は発行日以降にしてください。",
-    });
+    issues.push({ path: ["paymentDueDate"], message: "支払期限が不正です。" });
   }
 
   if (invoice.lineItems.length === 0 || invoice.lineItems.length > 10) {

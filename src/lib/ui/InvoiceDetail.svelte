@@ -123,7 +123,7 @@
         const result = await deleteSavedInvoice(fetch, saved);
         if (result.ok)
           await goto(
-            resolve(`/invoices?year=${saved.transactionDate.slice(0, 4)}`),
+            resolve(`/invoices?year=${saved.invoiceDate.slice(0, 4)}`),
             { refreshAll: true },
           );
         else operationError = result.error;
@@ -136,7 +136,7 @@
 
 <svelte:head><title>{saved.invoiceNumber} | keiri</title></svelte:head>
 <p class="back-link">
-  <a href={resolve(`/invoices?year=${saved.transactionDate.slice(0, 4)}`)}>
+  <a href={resolve(`/invoices?year=${saved.invoiceDate.slice(0, 4)}`)}>
     請求書一覧へ戻る
   </a>
 </p>
@@ -237,7 +237,7 @@
         disabled={busy || dirty}
         onclick={() =>
           change(
-            () => issueSavedInvoice(fetch, saved, form, todayInTokyo()),
+            () => issueSavedInvoice(fetch, saved, form),
             "発行しました",
           )}
       >
@@ -268,12 +268,8 @@
         </dd>
       </div>
       <div>
-        <dt>発行日</dt>
-        <dd>{formatBusinessDate(saved.issueDate)}</dd>
-      </div>
-      <div>
-        <dt>取引日</dt>
-        <dd>{formatBusinessDate(saved.transactionDate)}</dd>
+        <dt>請求日</dt>
+        <dd>{formatBusinessDate(saved.invoiceDate)}</dd>
       </div>
       <div>
         <dt>支払期限</dt>

@@ -10,8 +10,7 @@ import { validatePdfBaseName } from "#lib/domain/pdf-file-name";
 export function validateInvoiceDraftContent(
   invoice: Pick<
     Invoice,
-    | "issueDate"
-    | "transactionDate"
+    | "invoiceDate"
     | "paymentDueDate"
     | "lineItems"
     | "unitPricesIncludeTax"
@@ -21,8 +20,7 @@ export function validateInvoiceDraftContent(
 ): DomainValidationIssue[] {
   const issues: DomainValidationIssue[] = [];
   for (const [key, label] of [
-    ["issueDate", "発行日"],
-    ["transactionDate", "取引日"],
+    ["invoiceDate", "請求日"],
     ["paymentDueDate", "支払期限"],
   ] as const) {
     if (!isBusinessDate(invoice[key])) {

@@ -21,12 +21,12 @@ describe("請求書画面の読み込み", () => {
     });
     expect(fetcher.mock.calls[0][0]).toBe("/api/invoices");
   });
-  it("指定した取引年と不正・重複した値をAPIへそのまま渡す", async () => {
+  it("指定した請求年と不正・重複した値をAPIへそのまま渡す", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
         Response.json(
-          { message: "不正な取引年です。", issues: [] },
+          { message: "不正な請求年です。", issues: [] },
           { status: 400 },
         ),
       );

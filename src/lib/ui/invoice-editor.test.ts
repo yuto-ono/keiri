@@ -88,7 +88,7 @@ describe("請求書編集フォーム", () => {
   it("保存内容全体を送信し、保護対象の情報と期待リビジョンを保持する", async () => {
     const { invoice, options, fetcher } = createHarness();
     const form = createInvoiceDraftForm(invoice);
-    form.transactionDate = "2025-12-31";
+    form.invoiceDate = "2026-10-31";
     form.paymentDueDate = "2026-12-31";
     form.honorific = "様";
     form.notes = "備考\n\n段落";
@@ -113,7 +113,7 @@ describe("請求書編集フォーム", () => {
       status: "draft",
       paymentCompletedDate: null,
       rounding: invoice.rounding,
-      transactionDate: form.transactionDate,
+      invoiceDate: form.invoiceDate,
       paymentDueDate: form.paymentDueDate,
       businessPartner: {
         code: "ACME",
@@ -286,7 +286,7 @@ describe("請求書詳細の操作", () => {
     const form = createInvoiceDraftForm(invoice);
     form.notes = "未保存";
     expect(
-      await issueSavedInvoice(fetcher, invoice, form, "2026-10-26"),
+      await issueSavedInvoice(fetcher, invoice, form),
     ).toMatchObject({
       ok: false,
       error: { message: expect.stringContaining("先に保存") },
@@ -299,7 +299,6 @@ describe("請求書詳細の操作", () => {
       fetcher,
       invoice,
       createInvoiceDraftForm(invoice),
-      "2026-10-26",
     );
     expect(fetcher).toHaveBeenCalledOnce();
     const [url, init] = fetcher.mock.calls[0];

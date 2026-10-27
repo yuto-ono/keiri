@@ -33,7 +33,7 @@ export class FileInvoiceCreationGateway implements InvoiceCreationGateway {
     const filePath = [
       "sales",
       "invoices",
-      invoice.transactionDate.slice(0, 4),
+      invoice.invoiceDate.slice(0, 4),
       `${invoice.invoiceNumber}.yaml`,
     ].join("/");
     const contents = serializeInvoice(invoice);

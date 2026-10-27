@@ -129,11 +129,11 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
     .description("明細が空の請求書下書きを作成します。")
     .argument("<取引先コード>", "請求書を作成する取引先コード")
     .requiredOption("--payment-due-date <YYYY-MM-DD>", "支払期限")
-    .option("--issue-date <YYYY-MM-DD>", "発行日。省略時は実行日")
+    .option("--invoice-date <YYYY-MM-DD>", "請求日。省略時は実行日")
     .action(
       async (
         businessPartnerCode: string,
-        options: { paymentDueDate: string; issueDate?: string },
+        options: { paymentDueDate: string; invoiceDate?: string },
       ) => {
         const dataDirectory = resolveKeiriDataDirectory(
           dependencies.repositoryRoot,
@@ -144,7 +144,7 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
           {
             businessPartnerCode,
             paymentDueDate: options.paymentDueDate,
-            issueDate: options.issueDate,
+            invoiceDate: options.invoiceDate,
             today: dependencies.today,
           },
         );
@@ -192,14 +192,14 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
     .description("請求書から新しい独立した下書きを複製します。")
     .argument("<複製元の請求書番号>", "複製元の請求書番号")
     .requiredOption("--payment-due-date <YYYY-MM-DD>", "新しい支払期限")
-    .option("--issue-date <YYYY-MM-DD>", "新しい発行日。省略時は実行日")
+    .option("--invoice-date <YYYY-MM-DD>", "新しい請求日。省略時は実行日")
     .option("--business-partner <取引先コード>", "複製先の取引先")
     .action(
       async (
         sourceInvoiceNumber: string,
         options: {
           paymentDueDate: string;
-          issueDate?: string;
+          invoiceDate?: string;
           businessPartner?: string;
         },
       ) => {
@@ -212,7 +212,7 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
           {
             sourceInvoiceNumber,
             paymentDueDate: options.paymentDueDate,
-            issueDate: options.issueDate,
+            invoiceDate: options.invoiceDate,
             businessPartnerCode: options.businessPartner,
             today: dependencies.today,
           },
@@ -249,7 +249,6 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
         {
           invoiceNumber,
           expectedRevision: options.revision,
-          today: dependencies.today,
         },
       );
       io.stdout.write(

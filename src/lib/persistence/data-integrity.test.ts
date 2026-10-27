@@ -42,7 +42,7 @@ const partner: BusinessPartner = {
     email: false,
     bankAccountIds: ["primary"],
   },
-  pdfFileNamePattern: "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+  pdfFileNamePattern: "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
 };
 
 const taxCategories: TaxCategories = {
@@ -77,8 +77,7 @@ const invoice: Invoice = {
       bankAccounts: issuer.bankAccounts,
     },
   },
-  issueDate: "2026-10-01",
-  transactionDate: "2026-10-01",
+  invoiceDate: "2026-10-01",
   paymentDueDate: "2026-11-30",
   paymentCompletedDate: null,
   unitPricesIncludeTax: false,
@@ -115,6 +114,44 @@ function createDataSet(): KeiriDataSet {
 describe("データ全体の整合性検証", () => {
   it("有効なデータセットを受け入れる", () => {
     expect(validateDataIntegrity(createDataSet())).toEqual([]);
+  });
+
+  it.each(["draft", "issued"] as const)(
+    "%s は請求日前の支払期限を許可する",
+    (status) => {
+      const dataSet = createDataSet();
+      dataSet.invoices = [
+        {
+          ...dataSet.invoices[0],
+          data: {
+            ...invoice,
+            status,
+            paymentDueDate: "2026-09-30",
+            pdf: {
+              ...invoice.pdf,
+              issuedFileName: status === "issued" ? "invoice.pdf" : null,
+            },
+          },
+        },
+      ];
+      expect(validateDataIntegrity(dataSet)).toEqual([]);
+    },
+  );
+
+  it("請求書番号の年月と請求日の一致を検証する", () => {
+    const dataSet = createDataSet();
+    dataSet.invoices = [
+      {
+        ...dataSet.invoices[0],
+        data: { ...invoice, invoiceDate: "2026-11-01" },
+      },
+    ];
+    expect(validateDataIntegrity(dataSet)).toEqual([
+      expect.objectContaining({
+        path: ["invoiceNumber"],
+        message: "請求書番号の請求年月がinvoiceDateと一致しません。",
+      }),
+    ]);
   });
 
   it("識別子の大文字・小文字を区別しない重複を検出する", () => {
@@ -191,7 +228,7 @@ describe("データ全体の整合性検証", () => {
     ).toBe(true);
   });
 
-  it("請求書の参照、番号、配置先、支払期限、税区分をまとめて検証する", () => {
+  it("請求書の参照、番号、配置先、税区分をまとめて検証する", () => {
     const dataSet = createDataSet();
     dataSet.invoices = [
       {
@@ -221,9 +258,6 @@ describe("データ全体の整合性検証", () => {
       true,
     );
     expect(messages.some((message) => message.includes("2桁連番"))).toBe(true);
-    expect(
-      messages.some((message) => message.includes("支払期限は発行日以降")),
-    ).toBe(true);
     expect(messages.some((message) => message.includes("税区分 missing"))).toBe(
       true,
     );

@@ -32,8 +32,7 @@ function createInvoice(overrides: Partial<Invoice> = {}): Invoice {
         ],
       },
     },
-    issueDate: "2026-10-01",
-    transactionDate: "2026-10-01",
+    invoiceDate: "2026-10-01",
     paymentDueDate: "2026-11-30",
     paymentCompletedDate: null,
     unitPricesIncludeTax: false,
@@ -55,18 +54,18 @@ function createInvoice(overrides: Partial<Invoice> = {}): Invoice {
 
 describe("請求書の発行前検証", () => {
   it("発行可能な下書きなら問題を返さない", () => {
-    expect(validateInvoiceForIssue(createInvoice(), "2026-10-01")).toEqual([]);
+    expect(validateInvoiceForIssue(createInvoice())).toEqual([]);
   });
 
-  it("未来の取引日は発行を妨げない", () => {
-    const invoice = createInvoice({ transactionDate: "2027-01-01" });
-    expect(validateInvoiceForIssue(invoice, "2026-10-01")).toEqual([]);
+  it("未来の請求日と請求日前の支払期限は発行を妨げない", () => {
+    const invoice = createInvoice({ invoiceDate: "2027-01-01" });
+    expect(validateInvoiceForIssue(invoice)).toEqual([]);
   });
 
-  it("未来の発行日、発行日前の支払期限、明細0件、振込先0件をまとめて返す", () => {
+  it("不正な日付、明細0件、振込先0件をまとめて返す", () => {
     const invoice = createInvoice({
-      issueDate: "2026-10-02",
-      paymentDueDate: "2026-10-01",
+      invoiceDate: "2026-02-30",
+      paymentDueDate: "不正な日付",
       lineItems: [],
       issuer: {
         ...createInvoice().issuer,
@@ -77,14 +76,14 @@ describe("請求書の発行前検証", () => {
       },
     });
 
-    expect(validateInvoiceForIssue(invoice, "2026-10-01")).toEqual([
+    expect(validateInvoiceForIssue(invoice)).toEqual([
       {
-        path: ["issueDate"],
-        message: "未来の発行日を持つ請求書は、その日まで発行できません。",
+        path: ["invoiceDate"],
+        message: "請求日が不正です。",
       },
       {
         path: ["paymentDueDate"],
-        message: "支払期限は発行日以降にしてください。",
+        message: "支払期限が不正です。",
       },
       {
         path: ["lineItems"],
@@ -110,6 +109,6 @@ describe("請求書の発行前検証", () => {
       ],
     });
 
-    expect(validateInvoiceForIssue(invoice, "2026-10-01")).toHaveLength(2);
+    expect(validateInvoiceForIssue(invoice)).toHaveLength(2);
   });
 });

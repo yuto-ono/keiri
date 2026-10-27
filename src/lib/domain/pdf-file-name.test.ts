@@ -11,7 +11,7 @@ const values = {
   businessPartnerCode: "ACME",
   addressee: "株式会社サンプル",
   honorific: "御中",
-  issueDate: "2026-10-05",
+  invoiceDate: "2026-10-05",
   sequence: 3,
 };
 
@@ -19,7 +19,7 @@ describe("PDFファイル名", () => {
   it("既定の命名規則から請求書番号と同じ名前を作る", () => {
     expect(
       buildPdfFileName(
-        "{businessPartnerCode}-{issueDate:YYYYMM}-{sequence}",
+        "{businessPartnerCode}-{invoiceDate:YYYYMM}-{sequence}",
         null,
         values,
       ),
@@ -29,7 +29,7 @@ describe("PDFファイル名", () => {
   it("宛名と日付書式を展開する", () => {
     expect(
       buildPdfFileName(
-        "{addresseeWithHonorific}_{issueDate:YYYY-MM-DD}",
+        "{addresseeWithHonorific}_{invoiceDate:YYYY-MM-DD}",
         null,
         values,
       ),
@@ -51,7 +51,12 @@ describe("PDFファイル名", () => {
     },
   );
 
-  it.each(["{unknown}", "{issueDate:YYMM}", "unclosed{sequence"])(
+  it.each([
+    "{unknown}",
+    "{invoiceDate:YYMM}",
+    "{issueDate:YYYYMM}",
+    "unclosed{sequence",
+  ])(
     "不正な命名規則 %s を検出する",
     (pattern) => {
       expect(validatePdfFileNamePattern(pattern)).not.toEqual([]);

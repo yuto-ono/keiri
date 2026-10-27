@@ -341,7 +341,7 @@
         <li><code>{"{businessPartnerCode}"}</code>：取引先コード</li>
         <li><code>{"{addresseeWithHonorific}"}</code>：敬称を含む宛名</li>
         <li>
-          <code>{"{issueDate:YYYYMM}"}</code>：発行日（YYYY・MM・DDを使用できます）
+          <code>{"{invoiceDate:YYYYMM}"}</code>：請求日（YYYY・MM・DDを使用できます）
         </li>
         <li><code>{"{sequence}"}</code>：2桁の連番</li>
       </ul>

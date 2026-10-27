@@ -1,4 +1,3 @@
-import { isBusinessDateAfter } from "#lib/domain/business-date";
 import { validateBusinessPartnerIssuerDisplay } from "#lib/domain/business-partner";
 import { validateIssuerBankAccountReferences } from "#lib/domain/issuer";
 import type {
@@ -143,10 +142,10 @@ function validateInvoice(
   issues: DataIntegrityIssue[],
 ): void {
   const { data: invoice, filePath } = record;
-  const transactionYear = invoice.transactionDate.slice(0, 4);
+  const invoiceYear = invoice.invoiceDate.slice(0, 4);
   expectFilePath(
     filePath,
-    `sales/invoices/${transactionYear}/${invoice.invoiceNumber}.yaml`,
+    `sales/invoices/${invoiceYear}/${invoice.invoiceNumber}.yaml`,
     issues,
   );
 
@@ -166,14 +165,6 @@ function validateInvoice(
   }
 
   validateInvoiceNumber(invoice, filePath, issues);
-
-  if (isBusinessDateAfter(invoice.issueDate, invoice.paymentDueDate)) {
-    issues.push({
-      filePath,
-      path: ["paymentDueDate"],
-      message: "支払期限は発行日以降にしてください。",
-    });
-  }
 
   const firstTaxCategoryId = invoice.lineItems[0]?.taxCategoryId;
   invoice.lineItems.forEach((lineItem, index) => {
@@ -244,12 +235,12 @@ function validateInvoiceNumber(
     return;
   }
 
-  const issueMonth = invoice.issueDate.slice(0, 7).replace("-", "");
-  if (match[1] !== issueMonth) {
+  const invoiceMonth = invoice.invoiceDate.slice(0, 7).replace("-", "");
+  if (match[1] !== invoiceMonth) {
     issues.push({
       filePath,
       path: ["invoiceNumber"],
-      message: "請求書番号の発行年月がissueDateと一致しません。",
+      message: "請求書番号の請求年月がinvoiceDateと一致しません。",
     });
   }
 }

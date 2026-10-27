@@ -57,15 +57,11 @@
       </select>
     </label>
     <label>
-      発行日
-      <input type="date" required bind:value={form.issueDate} />
-      {#if context.issueMonth}
-        <span class="field-help">{formatBusinessMonth(context.issueMonth)}内で変更できます。</span>
+      請求日
+      <input type="date" required bind:value={form.invoiceDate} />
+      {#if context.invoiceMonth}
+        <span class="field-help">{formatBusinessMonth(context.invoiceMonth)}内で変更できます。</span>
       {/if}
-    </label>
-    <label>
-      取引日
-      <input type="date" required bind:value={form.transactionDate} />
     </label>
     <label>
       支払期限

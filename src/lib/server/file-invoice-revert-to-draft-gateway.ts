@@ -32,7 +32,7 @@ export class FileInvoiceRevertToDraftGateway implements InvoiceRevertToDraftGate
     if (issuedFileName === null) {
       throw new Error("下書きへ戻す請求書の正式PDFファイル名がありません。");
     }
-    const year = currentInvoice.transactionDate.slice(0, 4);
+    const year = currentInvoice.invoiceDate.slice(0, 4);
     const invoiceFilePath = `sales/invoices/${year}/${currentInvoice.invoiceNumber}.yaml`;
     const pdfFilePath = `documents/${year}/sales/invoices/${currentInvoice.businessPartner.code}/${issuedFileName}`;
     const absoluteInvoicePath = resolve(this.#rootDirectory, invoiceFilePath);

@@ -58,8 +58,7 @@ describe("未保存フォームからの初回保存", () => {
     };
     let form = createUnsavedInvoiceForm(context);
     form = changeUnsavedInvoicePartner(form, "ACME", context);
-    form.issueDate = "2026-12-01";
-    form.transactionDate = "2025-12-31";
+    form.invoiceDate = "2026-12-01";
     form.paymentDueDate = "2026-12-31";
     form.lineItems.push({
       name: "入力した業務",
@@ -95,7 +94,7 @@ describe("未保存フォームからの初回保存", () => {
     });
     expect(await readdir(join(dataRoot, "sales/invoices"))).toEqual([
       ".gitkeep",
-      "2025",
+      "2026",
     ]);
     expect((await loadKeiriData(dataRoot)).invoices).toHaveLength(1);
   });
@@ -104,7 +103,7 @@ describe("未保存フォームからの初回保存", () => {
       new FileInvoiceCreationGateway(dataRoot),
       {
         businessPartnerCode: "ACME",
-        issueDate: "2026-10-01",
+        invoiceDate: "2026-10-01",
         paymentDueDate: "2026-10-31",
         today: "2026-10-26",
         content: createInvoiceDraftFormContent({
@@ -149,8 +148,7 @@ describe("未保存フォームからの初回保存", () => {
         invoice: {
           invoiceNumber: "ACME-202610-02",
           revision: 1,
-          issueDate: context.today,
-          transactionDate: context.today,
+          invoiceDate: context.today,
           notes: "複製後の備考",
           pdf: { fileNameOverride: null, issuedFileName: null },
         },

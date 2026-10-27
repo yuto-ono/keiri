@@ -124,12 +124,12 @@ function validateUpdate(
   }
 
   if (
-    isBusinessDate(proposed.issueDate) &&
-    !isSameBusinessMonth(proposed.issueDate, current.issueDate)
+    isBusinessDate(proposed.invoiceDate) &&
+    !isSameBusinessMonth(proposed.invoiceDate, current.invoiceDate)
   ) {
     issues.push({
-      path: ["issueDate"],
-      message: "発行年月は保存後に変更できません。",
+      path: ["invoiceDate"],
+      message: "請求年月は保存後に変更できません。",
     });
   }
   validateBankAccounts(current, proposed, context.issuer, issues);

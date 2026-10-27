@@ -9,7 +9,7 @@ export interface PdfFileNameValues {
   businessPartnerCode: string;
   addressee: string;
   honorific: string;
-  issueDate: string;
+  invoiceDate: string;
   sequence: number;
 }
 
@@ -40,7 +40,7 @@ export function validatePdfFileNamePattern(
       businessPartnerCode: "PARTNER",
       addressee: "宛名",
       honorific: "御中",
-      issueDate: "2000-01-02",
+      invoiceDate: "2000-01-02",
       sequence: 1,
     });
     return [];
@@ -96,9 +96,9 @@ function interpolatePdfFileNamePattern(
       case "sequence":
         return String(values.sequence).padStart(2, "0");
       default:
-        if (placeholder.startsWith("issueDate:")) {
-          const format = placeholder.slice("issueDate:".length);
-          const formatted = formatIssueDate(values.issueDate, format);
+        if (placeholder.startsWith("invoiceDate:")) {
+          const format = placeholder.slice("invoiceDate:".length);
+          const formatted = formatInvoiceDate(values.invoiceDate, format);
           if (formatted !== null) {
             return formatted;
           }
@@ -123,8 +123,8 @@ function interpolatePdfFileNamePattern(
   return result;
 }
 
-function formatIssueDate(issueDate: string, dateFormat: string): string | null {
-  const [year, month, day] = issueDate.split("-");
+function formatInvoiceDate(invoiceDate: string, dateFormat: string): string | null {
+  const [year, month, day] = invoiceDate.split("-");
   let formatted = "";
   let hasToken = false;
 
