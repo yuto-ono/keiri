@@ -19,6 +19,18 @@ afterEach(async () => {
 });
 
 describe("CLIの起動", () => {
+  it("再生成の入口で番号なしを日本語のエラーと非ゼロ終了コードで拒否する", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["--env-file=.env", entrypoint, "invoice", "regenerate-pdf"],
+      { cwd: workingDirectory, encoding: "utf8", timeout: 10_000 },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("必須の引数が指定されていません。");
+  });
+
   it.each([
     { command: "issue", description: "正式PDF" },
     { command: "revert-to-draft", description: "正式PDF" },

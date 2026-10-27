@@ -24,6 +24,10 @@ import {
   type InvoiceRevertToDraftGateway,
 } from "#lib/application/revert-invoice-to-draft";
 import {
+  regenerateInvoicePdf,
+  type InvoicePdfRegenerationGateway,
+} from "#lib/application/regenerate-invoice-pdf";
+import {
   deleteInvoiceDraft,
   type InvoiceDeletionGateway,
 } from "#lib/application/delete-invoice-draft";
@@ -48,6 +52,9 @@ export interface CliDependencies {
   createGateway(dataDirectory: string): InvoiceCreationGateway;
   createUpdateGateway(dataDirectory: string): InvoiceUpdateGateway;
   createIssueGateway(dataDirectory: string): InvoiceIssueGateway;
+  createPdfRegenerationGateway(
+    dataDirectory: string,
+  ): InvoicePdfRegenerationGateway;
   createRevertToDraftGateway(
     dataDirectory: string,
   ): InvoiceRevertToDraftGateway;
@@ -255,6 +262,42 @@ function createProgram(dependencies: CliDependencies, io: CliIo): Command {
           "",
         ].join("\n"),
       );
+    });
+
+  invoice
+    .command("regenerate-pdf")
+    .description("発行済み請求書の正式PDFを現在のテンプレートで再生成します。")
+    .argument("<請求書番号...>", "指定順に再生成する請求書番号")
+    .action(async (invoiceNumbers: string[]) => {
+      const dataDirectory = resolveKeiriDataDirectory(
+        dependencies.repositoryRoot,
+        dependencies.environment,
+      );
+      const gateway = dependencies.createPdfRegenerationGateway(dataDirectory);
+      const renderer = dependencies.createPdfRenderer(
+        dependencies.repositoryRoot,
+      );
+      for (const invoiceNumber of invoiceNumbers) {
+        try {
+          const result = await regenerateInvoicePdf(
+            gateway,
+            renderer,
+            invoiceNumber,
+          );
+          io.stdout.write(
+            [
+              "操作結果: 請求書PDFを再生成しました。",
+              `請求書番号: ${result.invoice.invoiceNumber}`,
+              `PDF保存先: ${result.pdfFilePath}`,
+              `リビジョン: ${result.invoice.revision}`,
+              "",
+            ].join("\n"),
+          );
+        } catch (error) {
+          io.stderr.write(`請求書番号: ${invoiceNumber}\n`);
+          throw error;
+        }
+      }
     });
 
   invoice

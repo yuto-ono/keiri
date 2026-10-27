@@ -5,6 +5,7 @@ import { todayInTokyo } from "#lib/domain/business-date";
 import { FileInvoiceCreationGateway } from "#lib/server/file-invoice-creation-gateway";
 import { FileInvoiceUpdateGateway } from "#lib/server/file-invoice-update-gateway";
 import { FileInvoiceIssueGateway } from "#lib/server/file-invoice-issue-gateway";
+import { FileInvoicePdfRegenerationGateway } from "#lib/server/file-invoice-pdf-regeneration-gateway";
 import { FileInvoiceRevertToDraftGateway } from "#lib/server/file-invoice-revert-to-draft-gateway";
 import { FileInvoiceDeletionGateway } from "#lib/server/file-invoice-deletion-gateway";
 import { PlaywrightInvoicePdfRenderer } from "#lib/server/playwright-invoice-pdf-renderer";
@@ -21,6 +22,8 @@ const exitCode = await runCli(
       new FileInvoiceUpdateGateway(dataDirectory),
     createIssueGateway: (dataDirectory) =>
       new FileInvoiceIssueGateway(dataDirectory),
+    createPdfRegenerationGateway: (dataDirectory) =>
+      new FileInvoicePdfRegenerationGateway(dataDirectory),
     createRevertToDraftGateway: (dataDirectory) =>
       new FileInvoiceRevertToDraftGateway(dataDirectory),
     createDeletionGateway: (dataDirectory) =>

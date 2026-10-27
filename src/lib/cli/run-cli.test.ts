@@ -5,6 +5,8 @@ import {
   type InvoiceCreationGateway,
 } from "../application/create-invoice-draft";
 import type { InvoicePdfRenderer } from "#lib/application/issue-invoice";
+import { createInvoiceForPartner } from "#lib/testing/business-partners";
+import { createReadData } from "#lib/testing/keiri-read-data";
 import type { Invoice } from "../domain/model";
 import { serializeInvoice } from "../persistence/yaml-serializer";
 import { KeiriDataLoadError } from "#lib/server/keiri-data-loader";
@@ -155,6 +157,19 @@ function createHarness(overrides: Partial<CliDependencies> = {}) {
           };
         },
         commitIssuedInvoice,
+      };
+    },
+    createPdfRegenerationGateway() {
+      return {
+        async loadRegenerationContext() {
+          const context = await gateway.loadCreationContext();
+          return { invoice: savedInvoice, taxCategories: context.taxCategories };
+        },
+        async replaceIssuedPdf(invoice) {
+          return {
+            pdfFilePath: `documents/2026/sales/invoices/ACME/${invoice.pdf.issuedFileName}`,
+          };
+        },
       };
     },
     createRevertToDraftGateway(dataDirectory) {
@@ -728,6 +743,119 @@ describe("請求書発行CLI", () => {
     expect(harness.stdout()).toContain("正式PDF");
     expect(harness.stderr()).toBe("");
     expect(harness.issueGatewayDataDirectory()).toBeUndefined();
+  });
+});
+
+describe("請求書PDF再生成CLI", () => {
+  function createRegenerationHarness(failingNumber?: string) {
+    const invoices = ["01", "02", "03"].map((sequence) => {
+      const invoice = createInvoiceForPartner(undefined, "issued");
+      invoice.invoiceNumber = `ACME-202610-${sequence}`;
+      invoice.pdf.issuedFileName = `${invoice.invoiceNumber}.pdf`;
+      return invoice;
+    });
+    const events: string[] = [];
+    const createPdfRegenerationGateway = vi.fn((_directory: string) => ({
+      async loadRegenerationContext(invoiceNumber: string) {
+        events.push(`load:${invoiceNumber}`);
+        return {
+          invoice: invoices.find((invoice) => invoice.invoiceNumber === invoiceNumber),
+          taxCategories: createReadData().taxCategories,
+        };
+      },
+      async replaceIssuedPdf(invoice: Invoice) {
+        events.push(`replace:${invoice.invoiceNumber}`);
+        if (invoice.invoiceNumber === failingNumber) {
+          throw new Error("PDFを置き換えられません。");
+        }
+        return {
+          pdfFilePath: `documents/2026/sales/invoices/ACME/${invoice.pdf.issuedFileName}`,
+        };
+      },
+    }));
+    return {
+      ...createHarness({ createPdfRegenerationGateway }),
+      invoices,
+      events,
+      createPdfRegenerationGateway,
+    };
+  }
+
+  it.each([["ACME-202610-01"], ["ACME-202610-02", "ACME-202610-01"]])(
+    "番号だけで指定順に再生成し現在のリビジョンを表示する: %j",
+    async (...invoiceNumbers) => {
+      const harness = createRegenerationHarness();
+      const before = structuredClone(harness.invoices);
+      const exitCode = await runCli(
+        ["node", "keiri", "invoice", "regenerate-pdf", ...invoiceNumbers],
+        harness.dependencies,
+        harness.io,
+      );
+      expect(exitCode).toBe(0);
+      expect(harness.createPdfRegenerationGateway).toHaveBeenCalledWith("/work/keiri-data");
+      expect(harness.rendererRepositoryRoot()).toBe("/work/keiri");
+      expect(harness.events).toEqual(invoiceNumbers.flatMap((number) => [
+        `load:${number}`, `replace:${number}`,
+      ]));
+      expect(harness.stdout()).toBe(invoiceNumbers.map((number) => [
+        "操作結果: 請求書PDFを再生成しました。",
+        `請求書番号: ${number}`,
+        `PDF保存先: documents/2026/sales/invoices/ACME/${number}.pdf`,
+        "リビジョン: 1",
+        "",
+      ].join("\n")).join(""));
+      expect(harness.invoices).toEqual(before);
+      expect(harness.stderr()).toBe("");
+    },
+  );
+
+  it("途中の失敗時には成功済みを表示し、失敗番号と理由を出して後続を処理しない", async () => {
+    const harness = createRegenerationHarness("ACME-202610-02");
+    const exitCode = await runCli(
+      [
+        "node", "keiri", "invoice", "regenerate-pdf",
+        ...harness.invoices.map((invoice) => invoice.invoiceNumber),
+      ],
+      harness.dependencies,
+      harness.io,
+    );
+    expect(exitCode).toBe(1);
+    expect(harness.events).toEqual([
+      "load:ACME-202610-01", "replace:ACME-202610-01",
+      "load:ACME-202610-02", "replace:ACME-202610-02",
+    ]);
+    expect(harness.stdout()).toContain("請求書番号: ACME-202610-01");
+    expect(harness.stdout()).not.toContain("ACME-202610-02");
+    expect(harness.stderr()).toContain("請求書番号: ACME-202610-02");
+    expect(harness.stderr()).toContain("PDFを置き換えられません。");
+  });
+
+  it.each([[], ["ACME-202610-01", "--revision", "1"], ["ACME-202610-01", "--input", "-"]])(
+    "番号なしと未対応オプションを処理前に拒否する: %j",
+    async (...arguments_) => {
+      const harness = createRegenerationHarness();
+      const exitCode = await runCli(
+        ["node", "keiri", "invoice", "regenerate-pdf", ...arguments_],
+        harness.dependencies,
+        harness.io,
+      );
+      expect(exitCode).not.toBe(0);
+      expect(harness.createPdfRegenerationGateway).not.toHaveBeenCalled();
+      expect(harness.events).toEqual([]);
+      expect(harness.stdout()).toBe("");
+    },
+  );
+
+  it("ヘルプで複数番号の指定方法を案内する", async () => {
+    const harness = createRegenerationHarness();
+    expect(await runCli(
+      ["node", "keiri", "invoice", "regenerate-pdf", "--help"],
+      harness.dependencies,
+      harness.io,
+    )).toBe(0);
+    expect(harness.stdout()).toContain("<請求書番号...>");
+    expect(harness.stdout()).not.toContain("--revision");
+    expect(harness.stderr()).toBe("");
   });
 });
 
