@@ -88,7 +88,7 @@ describe("請求書PDFのHTML", () => {
     expect(html).not.toContain("株式会社サンプル <営業部>");
     expect(html).toContain("<dt>取引日</dt><dd>2026年09月30日</dd>");
     expect(html).toContain("登録番号: T1234567890123");
-    expect(html).toContain("¥ 27,500");
+    expect(html).toContain("<strong>¥ 27,500 -</strong>");
     expect(html).toContain("2.5 時間");
     expect(html).toContain("white-space: pre-wrap");
   });
@@ -100,6 +100,49 @@ describe("請求書PDFのHTML", () => {
     const html = buildInvoicePdfHtml(input, "data:font/ttf;base64,Zm9udA==");
 
     expect(html).not.toContain("<dt>取引日</dt>");
+  });
+
+  it.each([
+    {
+      mode: "税抜",
+      includesTax: false,
+      taxableAmount: "25000",
+      taxAmount: "2500",
+      totalAmount: "27500",
+      expectedTotals: [
+        ["小計", "25,000"],
+        ["消費税（10%）", "2,500"],
+        ["合計（税込）", "27,500"],
+      ],
+    },
+    {
+      mode: "税込",
+      includesTax: true,
+      taxableAmount: "22728",
+      taxAmount: "2272",
+      totalAmount: "25000",
+      expectedTotals: [
+        ["合計（税込）", "25,000"],
+        ["うち消費税（10%）", "2,272"],
+      ],
+    },
+  ])("$modeの単価見出しと集計金額を表示する", (scenario) => {
+    const input = createInput();
+    input.invoice.unitPricesIncludeTax = scenario.includesTax;
+    input.calculation = {
+      lineAmounts: ["25000"],
+      taxableAmount: scenario.taxableAmount,
+      taxAmount: scenario.taxAmount,
+      totalAmount: scenario.totalAmount,
+    };
+
+    const html = buildInvoicePdfHtml(input, "data:font/ttf;base64,Zm9udA==");
+    const totals = [...html.matchAll(/scope="row">(.*?)<\/th><td>([^<]+)<\/td>/g)]
+      .map((match) => [match[1].replace(/<[^>]+>/g, ""), match[2]]);
+
+    expect(html).toContain(`<th>単価<span class="tax-annotation">（${scenario.mode}）</span></th>`);
+    expect(html).not.toContain("単価は");
+    expect(totals).toEqual(scenario.expectedTotals);
   });
 
   it("安全な整数を超える計算結果も精度を落とさず表示する", () => {

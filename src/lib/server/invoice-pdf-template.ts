@@ -10,12 +10,37 @@ export function buildInvoicePdfHtml(
   fontDataUrl: string,
 ): string {
   const { invoice, taxCategory, calculation } = input;
-  const taxLabel = invoice.unitPricesIncludeTax
-    ? `うち消費税（${taxCategory.ratePercent}%）`
-    : `消費税（${taxCategory.ratePercent}%）`;
-  const subtotal = invoice.unitPricesIncludeTax
-    ? calculation.totalAmount
-    : calculation.taxableAmount;
+  const taxLabel = invoice.unitPricesIncludeTax ? "うち消費税" : "消費税";
+  const grandTotal = {
+    label: "合計",
+    annotation: "税込",
+    amount: calculation.totalAmount,
+    emphasized: true,
+  };
+  const tax = {
+    label: taxLabel,
+    annotation: `${taxCategory.ratePercent}%`,
+    amount: calculation.taxAmount,
+    emphasized: false,
+  };
+  const totals = invoice.unitPricesIncludeTax
+    ? [grandTotal, tax]
+    : [
+        {
+          label: "小計",
+          annotation: null,
+          amount: calculation.taxableAmount,
+          emphasized: false,
+        },
+        tax,
+        grandTotal,
+      ];
+  const totalRows = totals
+    .map(
+      (total, index) => `
+          <tr${total.emphasized ? ' class="grand-total"' : ""}>${index === 0 ? `<td class="totals-spacer" rowspan="${totals.length}"></td>` : ""}<th colspan="2" scope="row">${escapeHtml(total.label)}${total.annotation === null ? "" : `<span class="tax-annotation">（${escapeHtml(total.annotation)}）</span>`}</th><td>${formatYen(total.amount)}</td></tr>`,
+    )
+    .join("");
   const lineItems = invoice.lineItems
     .map(
       (lineItem, index) => `
@@ -148,8 +173,6 @@ export function buildInvoicePdfHtml(
       }
 
       .recipient-name {
-        display: inline;
-        border-bottom: 0.4mm solid #172033;
         font-size: 14pt;
         font-weight: 700;
         line-height: 1.8;
@@ -174,10 +197,7 @@ export function buildInvoicePdfHtml(
       }
 
       .amount-summary {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16mm;
-        align-items: end;
+        width: calc((100% - 16mm) / 2);
         margin: 2mm 0 8mm;
       }
 
@@ -206,12 +226,6 @@ export function buildInvoicePdfHtml(
         font-weight: 500;
       }
 
-      .tax-mode {
-        color: #5c667a;
-        text-align: right;
-        font-size: 8pt;
-      }
-
       table {
         width: 100%;
         border-collapse: collapse;
@@ -234,16 +248,24 @@ export function buildInvoicePdfHtml(
         font-weight: 700;
       }
 
-      .line-items th:first-child {
+      .tax-annotation {
+        font-weight: 400;
+      }
+
+      .line-items thead .tax-annotation {
+        font-size: 8pt;
+      }
+
+      .line-items thead th:first-child {
         width: 55%;
       }
 
-      .line-items th:nth-child(2) {
+      .line-items thead th:nth-child(2) {
         width: 15%;
       }
 
-      .line-items th:nth-child(3),
-      .line-items th:nth-child(4) {
+      .line-items thead th:nth-child(3),
+      .line-items thead th:nth-child(4) {
         width: 15%;
       }
 
@@ -256,16 +278,14 @@ export function buildInvoicePdfHtml(
         white-space: nowrap;
       }
 
-      .totals {
-        width: 45%;
-        margin-left: auto;
-        border-collapse: collapse;
-      }
-
       .totals th,
       .totals td {
-        border: 0.25mm solid #30394a;
         padding: 2mm 2.5mm;
+      }
+
+      .totals .totals-spacer {
+        border: 0;
+        padding: 0;
       }
 
       .totals th {
@@ -281,15 +301,14 @@ export function buildInvoicePdfHtml(
 
       .totals .grand-total th,
       .totals .grand-total td {
-        border-top-width: 0.5mm;
         font-weight: 700;
       }
 
       .footer-content {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 12mm;
-        margin-top: 8mm;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2mm;
+        margin-top: 2mm;
       }
 
       .footer-content h2 {
@@ -339,26 +358,17 @@ export function buildInvoicePdfHtml(
       </section>
 
       <section class="amount-summary">
-        <div>
-          <div class="amount-due"><span>ご請求金額</span><strong>¥ ${formatYen(calculation.totalAmount)}</strong></div>
-          <div class="payment-due">お支払い期限: ${formatBusinessDate(invoice.paymentDueDate)}</div>
-        </div>
-        <div class="tax-mode">単価は${invoice.unitPricesIncludeTax ? "税込" : "税抜"}です</div>
+        <div class="amount-due"><span>ご請求金額</span><strong>¥ ${formatYen(calculation.totalAmount)} -</strong></div>
+        <div class="payment-due">お支払い期限: ${formatBusinessDate(invoice.paymentDueDate)}</div>
       </section>
 
       <table class="line-items">
         <thead>
-          <tr><th>品目・品名</th><th>数量</th><th>単価</th><th>金額</th></tr>
+          <tr><th>品目・品名</th><th>数量</th><th>単価<span class="tax-annotation">（${invoice.unitPricesIncludeTax ? "税込" : "税抜"}）</span></th><th>金額</th></tr>
         </thead>
         <tbody>${lineItems}</tbody>
-      </table>
-
-      <table class="totals">
-        <tbody>
-          <tr><th>${invoice.unitPricesIncludeTax ? "税込小計" : "小計"}</th><td>${formatYen(subtotal)}</td></tr>
-          <tr><th>${taxLabel}</th><td>${formatYen(calculation.taxAmount)}</td></tr>
-          <tr class="grand-total"><th>合計</th><td>${formatYen(calculation.totalAmount)}</td></tr>
-        </tbody>
+        <tfoot class="totals">${totalRows}
+        </tfoot>
       </table>
 
       <div class="footer-content">
