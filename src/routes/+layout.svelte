@@ -3,9 +3,12 @@
   import { asset, resolve } from "$app/paths";
   import type { LayoutProps } from "./$types";
   import ReadError from "../lib/ui/ReadError.svelte";
+  import ToastRegion from "../lib/ui/ToastRegion.svelte";
+  import { provideToasts } from "#lib/ui/toast.svelte";
   import "#lib/styles/app.css";
 
   let { data, children }: LayoutProps = $props();
+  provideToasts();
 </script>
 
 <svelte:head>
@@ -62,6 +65,7 @@
     <main id="main-content" tabindex="-1">{@render children()}</main>
   </div>
 {/if}
+<ToastRegion />
 
 <style>
   .app-shell {

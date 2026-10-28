@@ -8,19 +8,19 @@
     saveIssuerForm,
   } from "#lib/ui/settings-editor";
   import { readJsonApi, type ApiReadError } from "#lib/ui/read-api";
+  import { getToasts } from "#lib/ui/toast.svelte";
   import InlineError from "./InlineError.svelte";
   let { issuer }: { issuer: Issuer } = $props();
+  const toasts = getToasts();
   let saved = $state(untrack(() => issuer));
   let form = $state(untrack(() => createIssuerForm(issuer)));
   let busy = $state(false);
   let operationError = $state<ApiReadError | null>(null);
-  let message = $state("");
 
   async function change(reload: boolean) {
     if (busy) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = reload
         ? await readJsonApi<{ issuer: Issuer }>(fetch, issuerApiPath(saved.id))
@@ -31,9 +31,11 @@
       }
       saved = result.value.issuer;
       form = createIssuerForm(saved);
-      message = reload
-        ? "発行者の最新データを読み直しました。"
-        : "発行者を保存しました。";
+      toasts.show(
+        reload
+          ? "発行者の最新データを読み直しました。"
+          : "発行者を保存しました。",
+      );
     } finally {
       busy = false;
     }
@@ -51,9 +53,6 @@
   </dl>
   {#if operationError}
     <InlineError error={operationError} focus={true} />
-  {/if}
-  {#if message}
-    <p class="operation-message" role="status">{message}</p>
   {/if}
   <form
     onsubmit={(event) => {
@@ -249,8 +248,5 @@
   }
   .bank-account .form-grid {
     margin: 1rem 0;
-  }
-  .operation-message {
-    color: var(--accent);
   }
 </style>

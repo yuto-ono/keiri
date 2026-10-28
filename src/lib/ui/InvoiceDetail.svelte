@@ -6,6 +6,7 @@
   import { formatBusinessDate, todayInTokyo } from "#lib/domain/business-date";
   import { resolveInvoiceAmounts } from "#lib/domain/invoice-calculation";
   import { formatRoundingMethod, formatYen } from "#lib/ui/format";
+  import { getToasts } from "#lib/ui/toast.svelte";
   import {
     readJsonApi,
     type ApiReadError,
@@ -31,6 +32,7 @@
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
   let { detail }: { detail: InvoiceDetailData } = $props();
+  const toasts = getToasts();
   let heading: HTMLHeadingElement;
   let screen = $state(untrack(() => detail));
   let saved = $state(untrack(() => detail.invoice));
@@ -40,7 +42,8 @@
   );
   let busy = $state(false);
   let operationError = $state<ApiReadError | null>(null);
-  let message = $state("");
+  let deleted = $state(false);
+  let navigationFailed = $state(false);
   let confirmation = $state<"revert" | "delete" | "delete-payment" | null>(
     null,
   );
@@ -64,16 +67,15 @@
     execute: () => Promise<ApiReadResult<{ invoice: Invoice }>>,
     successMessage: string,
   ) {
-    if (busy) return;
+    if (busy || deleted) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = await execute();
       if (result.ok) {
         const previousStatus = saved.status;
         acceptInvoice(result.value.invoice);
-        message = `${successMessage}（リビジョン${result.value.invoice.revision}）`;
+        toasts.show(`${successMessage}（${saved.invoiceNumber}）`);
         if (previousStatus !== result.value.invoice.status) {
           await tick();
           heading.focus();
@@ -84,10 +86,9 @@
     }
   }
   async function reload() {
-    if (busy) return;
+    if (busy || deleted) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = await readJsonApi<InvoiceDetailData>(
         fetch,
@@ -96,13 +97,14 @@
       if (result.ok) {
         screen = result.value;
         acceptInvoice(result.value.invoice);
-        message = "最新データを読み直しました。";
+        toasts.show("請求書の最新データを読み直しました。");
       } else operationError = result.error;
     } finally {
       busy = false;
     }
   }
   async function confirmOperation() {
+    if (busy || deleted) return;
     const operation = confirmation;
     confirmation = null;
     if (operation === "revert")
@@ -118,15 +120,20 @@
     if (operation === "delete") {
       busy = true;
       operationError = null;
-      message = "";
       try {
         const result = await deleteSavedInvoice(fetch, saved);
-        if (result.ok)
-          await goto(
-            resolve(`/invoices?year=${saved.invoiceDate.slice(0, 4)}`),
-            { refreshAll: true },
-          );
-        else operationError = result.error;
+        if (result.ok) {
+          deleted = true;
+          toasts.show(`請求書 ${saved.invoiceNumber} の下書きを削除しました。`);
+          try {
+            await goto(
+              resolve(`/invoices?year=${saved.invoiceDate.slice(0, 4)}`),
+              { refreshAll: true },
+            );
+          } catch {
+            navigationFailed = true;
+          }
+        } else operationError = result.error;
       } finally {
         busy = false;
       }
@@ -159,14 +166,14 @@
       href={resolve("/invoices/[invoiceNumber]/duplicate", {
         invoiceNumber: saved.invoiceNumber,
       })}
-      aria-disabled={busy}
+      aria-disabled={busy || deleted}
       onclick={(event) => {
-        if (busy) event.preventDefault();
+        if (busy || deleted) event.preventDefault();
       }}
     >
       複製する
     </a>
-    <button type="button" disabled={busy} onclick={reload}>
+    <button type="button" disabled={busy || deleted} onclick={reload}>
       最新データを読み直す
     </button>
   </div>
@@ -174,11 +181,16 @@
 {#if operationError}
   <InlineError error={operationError} focus={true} />
 {/if}
-{#if message}
-  <p class="operation-message" role="status">{message}</p>
+{#if navigationFailed}
+  <section class="panel content-panel" role="status">
+    <p>下書きは削除しましたが、一覧画面へ移動できませんでした。</p>
+    <a href={resolve(`/invoices?year=${saved.invoiceDate.slice(0, 4)}`)}>
+      請求書一覧を開く
+    </a>
+  </section>
 {/if}
 
-{#if saved.status === "draft"}
+{#if !deleted && saved.status === "draft"}
   <form
     onsubmit={(event) => {
       event.preventDefault();
@@ -259,7 +271,7 @@
       </button>
     </div>
   </section>
-{:else}
+{:else if !deleted}
   <section class="panel content-panel" aria-labelledby="issued-content-heading">
     <h2 id="issued-content-heading">請求内容</h2>
     <dl class="details-grid">
@@ -472,9 +484,6 @@
   }
   .totals {
     margin-top: 1.5rem;
-  }
-  .operation-message {
-    color: var(--accent);
   }
   .notes {
     white-space: pre-wrap;

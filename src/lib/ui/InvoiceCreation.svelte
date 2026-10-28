@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import type { ApiReadError } from "#lib/ui/read-api";
+  import { getToasts } from "#lib/ui/toast.svelte";
   import {
     changeUnsavedInvoicePartner,
     createUnsavedInvoiceForm,
@@ -18,6 +19,7 @@
   import InlineError from "./InlineError.svelte";
 
   let { context }: { context: InvoiceCreationScreenData } = $props();
+  const toasts = getToasts();
   const initial = untrack(() => context);
   const source = initial.source;
   let form = $state(untrack(() => createUnsavedInvoiceForm(context)));
@@ -38,6 +40,7 @@
         return;
       }
       savedInvoiceNumber = result.value.invoice.invoiceNumber;
+      toasts.show(`請求書 ${savedInvoiceNumber} を保存しました。`);
       try {
         await goto(
           resolve("/invoices/[invoiceNumber]", {
@@ -91,15 +94,13 @@
 {#if operationError}
   <InlineError error={operationError} focus={true} />
 {/if}
-{#if savedInvoiceNumber}
+{#if savedInvoiceNumber && navigationFailed}
   <section class="panel content-panel" role="status">
     <h2>保存しました</h2>
     <p>請求書番号：{savedInvoiceNumber}</p>
-    {#if navigationFailed}
-      <p>
-        詳細画面へ移動できませんでした。保存した請求書を開いてください。
-      </p>
-    {/if}
+    <p>
+      詳細画面へ移動できませんでした。保存した請求書を開いてください。
+    </p>
     <a
       href={resolve("/invoices/[invoiceNumber]", {
         invoiceNumber: savedInvoiceNumber,

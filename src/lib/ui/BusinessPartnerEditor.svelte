@@ -12,11 +12,13 @@
     type BusinessPartnerEditorData,
   } from "#lib/ui/business-partner-editor";
   import type { ApiReadError } from "#lib/ui/read-api";
+  import { getToasts } from "#lib/ui/toast.svelte";
   import { formatBankAccount } from "#lib/ui/format";
   import InlineError from "./InlineError.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
   let { context }: { context: BusinessPartnerEditorData } = $props();
+  const toasts = getToasts();
   const creating = untrack(() => context.businessPartner === null);
   let screen = $state(untrack(() => context));
   let saved = $state(untrack(() => context.businessPartner));
@@ -29,7 +31,6 @@
   let deleted = $state(false);
   let confirmDelete = $state(false);
   let operationError = $state<ApiReadError | null>(null);
-  let message = $state("");
   let navigationFailed = $state(false);
   let completed = $derived(deleted || (creating && saved !== null));
 
@@ -37,7 +38,6 @@
     if (busy || completed) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = await saveBusinessPartnerForm(
         fetch,
@@ -52,7 +52,7 @@
       const previousCode = saved?.code;
       saved = result.value.businessPartner;
       form = createBusinessPartnerForm(saved, screen.issuer);
-      message = "保存しました。";
+      toasts.show(`取引先 ${saved.code} を保存しました。`);
       if (previousCode !== saved.code) {
         try {
           await goto(
@@ -72,7 +72,6 @@
     if (busy || saved === null || completed) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = await loadBusinessPartnerEditor(fetch, saved.code);
       if (!result.ok) {
@@ -82,7 +81,7 @@
       screen = result.value;
       saved = screen.businessPartner;
       form = createBusinessPartnerForm(saved, screen.issuer);
-      message = "最新のデータを読み直しました。";
+      toasts.show("取引先の最新データを読み直しました。");
     } finally {
       busy = false;
     }
@@ -94,7 +93,6 @@
       return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = await deleteSavedBusinessPartner(fetch, saved);
       if (!result.ok) {
@@ -102,7 +100,7 @@
         return;
       }
       deleted = true;
-      message = "取引先を削除しました。";
+      toasts.show(`取引先 ${saved.code} を削除しました。`);
       try {
         await goto(resolve("/business-partners"), { refreshAll: true });
       } catch {
@@ -149,9 +147,6 @@
 {/if}
 {#if operationError}
   <InlineError error={operationError} focus={true} />
-{/if}
-{#if message}
-  <p class="operation-message" role="status">{message}</p>
 {/if}
 {#if navigationFailed}
   <section class="panel content-panel" role="status">
@@ -428,8 +423,5 @@
   }
   .delete-section {
     margin-top: 2rem;
-  }
-  .operation-message {
-    color: var(--accent);
   }
 </style>

@@ -7,20 +7,20 @@
   } from "#lib/ui/settings-editor";
   import { formatRoundingMethod } from "#lib/ui/format";
   import { readJsonApi, type ApiReadError } from "#lib/ui/read-api";
+  import { getToasts } from "#lib/ui/toast.svelte";
   import InlineError from "./InlineError.svelte";
   let { settings }: { settings: Settings } = $props();
+  const toasts = getToasts();
   let saved = $state(untrack(() => settings));
   let form = $state(untrack(() => createRoundingForm(settings)));
   let busy = $state(false);
   let operationError = $state<ApiReadError | null>(null);
-  let message = $state("");
   const methods = ["floor", "halfUp", "ceil"] as const;
 
   async function change(reload: boolean) {
     if (busy) return;
     busy = true;
     operationError = null;
-    message = "";
     try {
       const result = reload
         ? await readJsonApi<{ settings: Settings }>(fetch, "/api/settings")
@@ -31,9 +31,11 @@
       }
       saved = result.value.settings;
       form = createRoundingForm(saved);
-      message = reload
-        ? "端数処理の最新データを読み直しました。"
-        : "端数処理を保存しました。";
+      toasts.show(
+        reload
+          ? "端数処理の最新データを読み直しました。"
+          : "端数処理を保存しました。",
+      );
     } finally {
       busy = false;
     }
@@ -48,9 +50,6 @@
   <p class="muted">リビジョン {saved.revision}</p>
   {#if operationError}
     <InlineError error={operationError} focus={true} />
-  {/if}
-  {#if message}
-    <p class="operation-message" role="status">{message}</p>
   {/if}
   <form
     onsubmit={(event) => {
@@ -90,9 +89,3 @@
     </fieldset>
   </form>
 </section>
-
-<style>
-  .operation-message {
-    color: var(--accent);
-  }
-</style>
