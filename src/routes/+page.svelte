@@ -113,7 +113,7 @@
 <style>
   .monthly-records {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
   }
   .monthly-record {
@@ -187,10 +187,5 @@
     min-width: 10rem;
     white-space: normal;
     overflow-wrap: anywhere;
-  }
-  @media (max-width: 70rem) {
-    .monthly-records {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 </style>
