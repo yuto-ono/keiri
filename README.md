@@ -33,3 +33,11 @@ pnpm build
 
 - [SPEC.md](SPEC.md): 確定した要件の唯一の正
 - [AGENTS.md](AGENTS.md): 仕様を扱う際の約束
+
+## 月次請求
+
+Codexから [月次請求スキル](.agents/skills/keiri-monthly-billing/SKILL.md) を使って、請求対象の確認、下書き作成、承認後の発行と月次記録の更新を進める。
+
+例: `$keiri-monthly-billing で今月の請求を進めて`
+
+利用者固有の共通ルールは `keiri-data/README.md`、取引先ごとの条件は `billingInstructions`、月ごとの記録は月次請求Markdownに置く。
